@@ -1,0 +1,23 @@
+# Environment — never commit real credentials
+.env
+
+# Poetry virtualenv (when created inside project)
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Data cache
+data/cache/
+
+# pytest
+.pytest_cache/
+htmlcov/
+.coverage
+
+# IDEs
+.vscode/
+.idea/
