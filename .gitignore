@@ -13,6 +13,9 @@ __pycache__/
 # Data cache
 data/cache/
 
+# Generated chart output
+output/
+
 # pytest
 .pytest_cache/
 htmlcov/

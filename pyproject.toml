@@ -6,11 +6,14 @@ authors = []
 package-mode = false
 
 [tool.poetry.dependencies]
-python     = "^3.11"
-yfinance   = "^0.2.36"
-pandas     = "^2.0"
-numpy      = "^2.0"
+python        = "^3.11"
+yfinance      = "^0.2.36"
+pandas        = "^2.0"
+numpy         = "^2.0"
 python-dotenv = "^1.0"      # load .env into os.environ at startup
+requests      = "^2.31"     # SEC EDGAR API calls
+plotly        = "^5.22"     # interactive charts (HTML output)
+pyarrow       = ">=16.0"    # parquet support for pandas cache
 
 [tool.poetry.group.dev.dependencies]
 pytest     = "^8.0"
