@@ -62,6 +62,14 @@ CONCEPTS: dict[str, tuple[list[str], str]] = {
     ),
     "shares_outstanding": (["CommonStockSharesOutstanding"], "shares"),
     "rd_expense":  (["ResearchAndDevelopmentExpense"], "USD"),
+    "da_expense": (
+        [
+            "DepreciationDepletionAndAmortization",
+            "DepreciationAndAmortization",
+            "Depreciation",
+        ],
+        "USD",
+    ),
     "dividends_paid": (
         ["PaymentsOfDividends", "PaymentsOfDividendsCommonStock"],
         "USD",

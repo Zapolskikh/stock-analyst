@@ -1,31 +1,36 @@
-[tool.poetry]
+[project]
 name = "stock-analyst"
 version = "0.1.0"
 description = "Equity scoring engine — rule-based multi-block stock analysis pipeline"
-authors = []
-package-mode = false
+requires-python = ">=3.11"
+dependencies = [
+    "yfinance>=0.2.36",
+    "pandas>=2.0",
+    "numpy>=2.0",
+    "python-dotenv>=1.0",       # load .env into os.environ at startup
+    "requests>=2.31",           # SEC EDGAR API calls
+    "plotly>=5.22",             # interactive charts (HTML output)
+    "pyarrow>=16.0",            # parquet support for pandas cache
+    "playwright>=1.44",         # JS-rendered page scraping (investing.com)
+    "beautifulsoup4>=4.12",     # HTML parsing
+]
 
-[tool.poetry.dependencies]
-python        = "^3.11"
-yfinance      = "^0.2.36"
-pandas        = "^2.0"
-numpy         = "^2.0"
-python-dotenv = "^1.0"      # load .env into os.environ at startup
-requests      = "^2.31"     # SEC EDGAR API calls
-plotly        = "^5.22"     # interactive charts (HTML output)
-pyarrow       = ">=16.0"    # parquet support for pandas cache
-
-[tool.poetry.group.dev.dependencies]
-pytest     = "^8.0"
-pytest-cov = "^5.0"
-ruff       = "^0.4"         # linter + formatter
-
-[tool.poetry.scripts]
+[project.scripts]
 analyse = "main:main"
 
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.4",                # linter + formatter
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
 [build-system]
-requires      = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires      = ["hatchling"]
+build-backend = "hatchling.build"
 
 # ---------------------------------------------------------------------------
 # Ruff config (linter)
