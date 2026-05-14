@@ -12,9 +12,11 @@ import pytest
 from src.data.normalizer import (
     NormalisedData,
     _align,
+    _compute_ttm_flow,
     _data_quality,
     _pct_change,
     _pct_ratio,
+    _quarterly_series,
     _ratio,
     _subtract,
     _valid,
@@ -326,3 +328,180 @@ class TestNormalise:
         ]:
             series = getattr(nd, attr)
             assert len(series) == n, f"{attr}: expected {n}, got {len(series)}"
+
+
+# ---------------------------------------------------------------------------
+# TTM helpers
+# ---------------------------------------------------------------------------
+
+def _make_quarterly_df(end_dates: list[str], values: list[float]) -> pd.DataFrame:
+    """Build a minimal EDGAR-style quarterly DataFrame (form=10-Q).
+
+    Sets start = end - 91 days so each row passes the single-quarter period
+    filter (60–105 days) added to _quarterly_series.
+    """
+    ends = pd.to_datetime(end_dates)
+    starts = ends - pd.Timedelta(days=91)
+    return pd.DataFrame(
+        {
+            "end":   ends,
+            "start": starts,
+            "val":   values,
+            "form":  ["10-Q"] * len(end_dates),
+            "filed": ends,
+            "accn":  [f"acc{i}" for i in range(len(end_dates))],
+        }
+    )
+
+
+def _mixed_df(
+    annual_years: list[int],
+    annual_vals: list[float],
+    quarterly_ends: list[str],
+    quarterly_vals: list[float],
+) -> pd.DataFrame:
+    """Combined annual + quarterly DataFrame."""
+    ann = _make_annual_df(annual_years, annual_vals)
+    q   = _make_quarterly_df(quarterly_ends, quarterly_vals)
+    return pd.concat([ann, q], ignore_index=True)
+
+
+class TestQuarterlySeries:
+
+    def test_returns_only_10q_rows(self):
+        df = _mixed_df(
+            [2022, 2023], [100.0, 200.0],
+            ["2024-03-31", "2024-06-30"], [55.0, 60.0],
+        )
+        dates, vals = _quarterly_series(df)
+        assert len(dates) == 2
+        assert len(vals) == 2
+
+    def test_sorted_oldest_first(self):
+        df = _make_quarterly_df(
+            ["2024-06-30", "2024-03-31", "2023-12-31", "2023-09-30"],
+            [60.0, 55.0, 50.0, 45.0],
+        )
+        dates, vals = _quarterly_series(df)
+        assert dates[0] < dates[-1]
+        assert vals[0] == 45.0   # oldest = 2023-09-30
+
+    def test_empty_dataframe_returns_empty(self):
+        dates, vals = _quarterly_series(None)
+        assert dates == []
+        assert vals == []
+
+    def test_annual_only_df_returns_empty(self):
+        df = _make_annual_df([2021, 2022, 2023], [100.0, 200.0, 300.0])
+        dates, vals = _quarterly_series(df)
+        assert dates == []
+        assert vals == []
+
+    def test_dates_are_iso_strings(self):
+        df = _make_quarterly_df(["2024-03-31"], [100.0])
+        dates, _ = _quarterly_series(df)
+        assert dates[0] == "2024-03-31"
+
+
+class TestComputeTTMFlow:
+
+    def test_sums_four_quarters(self):
+        result = _compute_ttm_flow([25.0, 30.0, 35.0, 40.0])
+        assert result == pytest.approx(130.0)
+
+    def test_uses_last_four_when_more_available(self):
+        # 5 values — only last 4 should be summed
+        result = _compute_ttm_flow([100.0, 25.0, 30.0, 35.0, 40.0])
+        assert result == pytest.approx(130.0)
+
+    def test_returns_none_with_fewer_than_four(self):
+        assert _compute_ttm_flow([25.0, 30.0, 35.0]) is None
+        assert _compute_ttm_flow([]) is None
+
+    def test_returns_none_when_nan_reduces_count(self):
+        import math
+        result = _compute_ttm_flow([25.0, float("nan"), 35.0, 40.0])
+        # Only 3 valid values → None
+        assert result is None
+
+    def test_negative_values_included(self):
+        result = _compute_ttm_flow([-10.0, -5.0, 5.0, 10.0])
+        assert result == pytest.approx(0.0)
+
+
+class TestNormaliseTTM:
+
+    def _base_with_quarters(self):
+        """Return fundamentals with 4 annual + 4 quarterly revenue rows."""
+        funds = _base_fundamentals()
+        # Add 4 quarterly rows for revenue (2024 quarters)
+        q_dates = ["2024-03-31", "2024-06-30", "2024-09-30", "2024-12-31"]
+        q_vals  = [90e9, 95e9, 100e9, 105e9]
+        annual_df = funds["revenue"]
+        quarterly_df = _make_quarterly_df(q_dates, q_vals)
+        funds["revenue"] = pd.concat([annual_df, quarterly_df], ignore_index=True)
+        return funds
+
+    def test_ttm_revenue_computed_when_four_quarters(self):
+        nd = normalise(self._base_with_quarters(), _make_ohlcv(), _base_info())
+        assert nd.ttm_revenue is not None
+        assert nd.ttm_revenue == pytest.approx(90e9 + 95e9 + 100e9 + 105e9)
+
+    def test_ttm_revenue_none_when_no_quarterly_data(self):
+        nd = normalise(_base_fundamentals(), _make_ohlcv(), _base_info())
+        assert nd.ttm_revenue is None
+
+    def test_ttm_as_of_set_when_quarterly_available(self):
+        nd = normalise(self._base_with_quarters(), _make_ohlcv(), _base_info())
+        assert nd.ttm_as_of == "2024-12-31"
+
+    def test_ttm_as_of_none_when_no_quarterly(self):
+        nd = normalise(_base_fundamentals(), _make_ohlcv(), _base_info())
+        assert nd.ttm_as_of is None
+
+    def test_ttm_margins_derived_from_ttm_revenue(self):
+        funds = _base_fundamentals()
+        q_dates = ["2024-03-31", "2024-06-30", "2024-09-30", "2024-12-31"]
+        # Revenue: 100 each quarter → TTM = 400
+        funds["revenue"] = pd.concat([
+            funds["revenue"],
+            _make_quarterly_df(q_dates, [100.0, 100.0, 100.0, 100.0]),
+        ], ignore_index=True)
+        # Net income: 20 each quarter → TTM = 80 → margin = 20%
+        funds["net_income"] = pd.concat([
+            funds["net_income"],
+            _make_quarterly_df(q_dates, [20.0, 20.0, 20.0, 20.0]),
+        ], ignore_index=True)
+        nd = normalise(funds, _make_ohlcv(), _base_info())
+        assert nd.ttm_net_margin == pytest.approx(20.0)
+
+    def test_ttm_fcf_derived(self):
+        funds = _base_fundamentals()
+        q_dates = ["2024-03-31", "2024-06-30", "2024-09-30", "2024-12-31"]
+        funds["operating_cf"] = pd.concat([
+            funds["operating_cf"],
+            _make_quarterly_df(q_dates, [30e9, 30e9, 30e9, 30e9]),
+        ], ignore_index=True)
+        funds["capex"] = pd.concat([
+            funds["capex"],
+            _make_quarterly_df(q_dates, [5e9, 5e9, 5e9, 5e9]),
+        ], ignore_index=True)
+        nd = normalise(funds, _make_ohlcv(), _base_info())
+        assert nd.ttm_fcf == pytest.approx(100e9)  # (30-5)*4
+
+    def test_ttm_fcf_none_when_capex_insufficient(self):
+        funds = _base_fundamentals()
+        q_dates = ["2024-03-31", "2024-06-30", "2024-09-30", "2024-12-31"]
+        # Only OCF has 4 quarters, capex has none → ttm_capex=None → ttm_fcf=None
+        funds["operating_cf"] = pd.concat([
+            funds["operating_cf"],
+            _make_quarterly_df(q_dates, [30e9, 30e9, 30e9, 30e9]),
+        ], ignore_index=True)
+        nd = normalise(funds, _make_ohlcv(), _base_info())
+        assert nd.ttm_fcf is None
+
+    def test_annual_series_unchanged_by_ttm(self):
+        nd_base = normalise(_base_fundamentals(), _make_ohlcv(), _base_info())
+        nd_ttm  = normalise(self._base_with_quarters(), _make_ohlcv(), _base_info())
+        # Annual revenue should be identical
+        assert nd_base.revenue_annual == nd_ttm.revenue_annual

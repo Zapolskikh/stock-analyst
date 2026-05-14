@@ -34,6 +34,14 @@ def _last_valid(values: list[float]) -> float:
     return float("nan")
 
 
+def _last_valid_pair(a: list[float], b: list[float]) -> tuple[float, float]:
+    """Return the most recent (a_val, b_val) pair where both are finite, same index."""
+    for i in range(min(len(a), len(b)) - 1, -1, -1):
+        if math.isfinite(a[i]) and math.isfinite(b[i]):
+            return a[i], b[i]
+    return float("nan"), float("nan")
+
+
 def _earnings_instability(values: list[float]) -> float:
     """
     Robust instability measure for a net-margin series.
@@ -79,23 +87,35 @@ def score_risk(
 
     *company_type* is used to skip D/E for Financial companies where
     structural leverage is normal and D/E > 4 is not a meaningful risk signal.
+
+    Coverage penalty: up to 6 risk metrics expected. Missing data reduces the
+    score via sqrt(coverage) to prevent low-data companies from appearing safe.
     """
     breakdown: dict[str, float] = {}
     notes: list[str] = []
+    attempted = 0
 
     # --- Debt / Equity (пропускаем для Financial — леверидж структурный) ---
     if company_type not in _DE_EXEMPT_TYPES:
+        attempted += 1
         de = _last_valid(nd.debt_to_equity_annual)
-        s = bm.score_metric("debt_to_equity", de)
-        if math.isfinite(s):
-            breakdown["debt_to_equity"] = s
-            if math.isfinite(de):
-                if de > 3.0:
-                    notes.append(f"high D/E {de:.1f}x — elevated leverage risk")
-                elif de < 0.3:
-                    notes.append(f"low D/E {de:.2f}x — strong balance sheet")
+        # Guard: D/E is misleading when equity is negative or near zero.
+        _, last_equity = _last_valid_pair(nd.long_term_debt_annual, nd.equity_annual)
+        if math.isfinite(last_equity) and last_equity <= 0:
+            notes.append("negative book equity — D/E not meaningful; check debt/assets")
+            # Attempted was counted -> coverage penalty applies; no breakdown entry
+        else:
+            s = bm.score_metric("debt_to_equity", de)
+            if math.isfinite(s):
+                breakdown["debt_to_equity"] = s
+                if math.isfinite(de):
+                    if de > 3.0:
+                        notes.append(f"high D/E {de:.1f}x — elevated leverage risk")
+                    elif de < 0.3:
+                        notes.append(f"low D/E {de:.2f}x — strong balance sheet")
 
     # --- Beta (market risk) ------------------------------------------------
+    attempted += 1
     beta = nd.beta
     if beta is not None and math.isfinite(beta):
         s = bm.score_metric("beta", beta)
@@ -108,19 +128,22 @@ def score_risk(
 
     # --- Earnings stability (robust instability, safe при переходе через 0) --
     nm_valid = [v for v in nd.net_margin_annual if math.isfinite(v)]
-    instability = _earnings_instability(nm_valid)
-    if math.isfinite(instability):
-        # instability=0 → perfect (10), =1 → very unstable (2), >2 → (0)
-        pts = [(0.0, 10), (0.3, 8), (0.7, 5), (1.0, 2), (2.0, 0)]
-        s = _interp(pts, instability)
-        if math.isfinite(s):
-            breakdown["earnings_stability"] = s
-            if instability > 0.8:
-                notes.append(f"earnings instability (score={instability:.2f})")
+    if len(nm_valid) >= 2:
+        attempted += 1
+        instability = _earnings_instability(nm_valid)
+        if math.isfinite(instability):
+            # instability=0 → perfect (10), =1 → very unstable (2), >2 → (0)
+            pts = [(0.0, 10), (0.3, 8), (0.7, 5), (1.0, 2), (2.0, 0)]
+            s = _interp(pts, instability)
+            if math.isfinite(s):
+                breakdown["earnings_stability"] = s
+                if instability > 0.8:
+                    notes.append(f"earnings instability (score={instability:.2f})")
 
     # --- FCF consistency (fraction of years with positive FCF) -------------
     fcf_valid = [v for v in nd.fcf_annual if math.isfinite(v)]
     if fcf_valid:
+        attempted += 1
         pos_fraction = sum(1 for v in fcf_valid if v > 0) / len(fcf_valid)
         # 100% → 10, 75% → 7, 50% → 4, 0% → 0
         pts = [(0.0, 0), (0.5, 4), (0.75, 7), (1.0, 10)]
@@ -132,20 +155,23 @@ def score_risk(
 
     # --- Revenue stability (CV of revenue growth, lower = more stable) ------
     rg_valid = [v for v in nd.revenue_growth_annual[1:] if math.isfinite(v)]
-    cv_rg = _coeff_variation(rg_valid)
-    if math.isfinite(cv_rg) and len(rg_valid) >= 2:
-        # Same scale as earnings_stability
-        pts = [(0.0, 10), (0.5, 7), (1.0, 4), (2.0, 1), (3.0, 0)]
-        s = _interp(pts, cv_rg)
-        if math.isfinite(s):
-            breakdown["revenue_stability"] = s
-            if cv_rg > 1.5:
-                notes.append(f"highly volatile revenue growth (CV={cv_rg:.1f})")
+    if len(rg_valid) >= 2:
+        attempted += 1
+        cv_rg = _coeff_variation(rg_valid)
+        if math.isfinite(cv_rg):
+            # Same scale as earnings_stability
+            pts = [(0.0, 10), (0.5, 7), (1.0, 4), (2.0, 1), (3.0, 0)]
+            s = _interp(pts, cv_rg)
+            if math.isfinite(s):
+                breakdown["revenue_stability"] = s
+                if cv_rg > 1.5:
+                    notes.append(f"highly volatile revenue growth (CV={cv_rg:.1f})")
 
     # --- Dilution risk (shares outstanding growth) -------------------------
     # Avg annual dilution > 0% bad; > 5% very bad (убыточные компании размывают)
     dil_valid = [v for v in nd.shares_dilution_annual[1:] if math.isfinite(v)]
     if len(dil_valid) >= 2:
+        attempted += 1
         avg_dil = sum(dil_valid) / len(dil_valid)
         # Only penalise dilution (positive growth = more shares = worse for investors)
         # Buybacks (negative growth) scored well
@@ -158,12 +184,13 @@ def score_risk(
             elif avg_dil < -1.0:
                 notes.append(f"share buybacks ({avg_dil:.1f}%/yr avg — positive)")
 
-    final = avg_scores(breakdown)
     if not breakdown:
         notes.append("insufficient data for risk scoring")
-        final = 5.0  # neutral fallback
+        return BlockScore(score=5.0, breakdown={}, notes=notes, coverage=0.0)
 
-    return BlockScore(score=final, breakdown=breakdown, notes=notes)
+    coverage = len(breakdown) / attempted if attempted > 0 else 1.0
+    final = avg_scores(breakdown, expected_count=attempted)
+    return BlockScore(score=final, breakdown=breakdown, notes=notes, coverage=coverage)
 
 
 def _interp(points: list[tuple[float, float]], value: float) -> float:

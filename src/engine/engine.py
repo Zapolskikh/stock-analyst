@@ -36,12 +36,14 @@ from typing import Optional
 from src.data.normalizer import NormalisedData
 from src.classifier import classify, CompanyType
 from src.models.benchmarks import get_benchmark
+from src.models.config_version import current_version
 from src.scoring.base import BlockScore
 from src.scoring.quality import score_quality
 from src.scoring.valuation import score_valuation
 from src.scoring.technical import score_technical
 from src.scoring.risk import score_risk
 from src.scoring.style_fit import score_style_fit
+from src.scoring.fair_value import compute_fair_value, FairValueResult
 
 
 # ---------------------------------------------------------------------------
@@ -54,6 +56,14 @@ class HorizonScores:
     short: float   # weeks to ~3 months
     medium: float  # 3–12 months
     long: float    # 1–5 years
+
+
+@dataclass
+class HorizonDecisions:
+    """Investment decision per horizon: "Buy" | "Watch" | "Hold" | "Avoid"."""
+    short:  str
+    medium: str
+    long:   str
 
 
 @dataclass
@@ -74,8 +84,13 @@ class AnalysisResult:
     overall_score: float       # 0–100
     stop_factors: list[StopFactor] = field(default_factory=list)
     rating: str = ""
-    decision: str = ""
-    data_confidence: str = "good"   # "good" | "partial" | "poor" — из NormalisedData.data_quality
+    decision: str = ""         # medium-horizon decision (backward-compat alias)
+    data_confidence: str = "good"   # "good" | "partial" | "poor"
+    horizon_decisions: HorizonDecisions = field(
+        default_factory=lambda: HorizonDecisions("Hold", "Hold", "Hold")
+    )
+    config_version: str = ""   # version of scoring thresholds/weights used
+    fair_value: Optional[FairValueResult] = None   # intrinsic value estimate
 
 
 # ---------------------------------------------------------------------------
@@ -223,19 +238,39 @@ def _check_stop_factors(
             severity="warning",
         ))
 
-    # 6. Low liquidity
+    # 6. Low liquidity — measured in dollar ADV (avg_volume × current_price)
+    # Share-count thresholds are misleading: 100k shares of a $2 stock ($200k/day)
+    # is far less liquid than 100k shares of a $500 stock ($50M/day).
     vol = nd.avg_volume
-    if vol is not None and math.isfinite(vol):
+    price = nd.current_price
+    dollar_adv: float | None = None
+    if vol is not None and math.isfinite(vol) and price is not None and math.isfinite(price) and price > 0:
+        dollar_adv = vol * price
+    if dollar_adv is not None:
+        if dollar_adv < 5_000_000:          # < $5M/day — very illiquid
+            factors.append(StopFactor(
+                name="Low Liquidity",
+                description=f"Dollar ADV ${dollar_adv/1e6:.1f}M/day — very illiquid, wide spreads likely",
+                severity="warning",
+            ))
+        elif dollar_adv < 20_000_000:       # $5M–$20M/day — limited tradability
+            factors.append(StopFactor(
+                name="Limited Liquidity",
+                description=f"Dollar ADV ${dollar_adv/1e6:.1f}M/day — limited tradability",
+                severity="warning",
+            ))
+    elif vol is not None and math.isfinite(vol):
+        # Fallback when price unavailable: use share-count thresholds
         if vol < 100_000:
             factors.append(StopFactor(
                 name="Low Liquidity",
-                description=f"Avg daily volume {vol:,.0f} shares — very illiquid, wide spreads likely",
+                description=f"Avg daily volume {vol:,.0f} shares — very illiquid (price unavailable for $ADV)",
                 severity="warning",
             ))
         elif vol < 500_000:
             factors.append(StopFactor(
                 name="Limited Liquidity",
-                description=f"Avg daily volume {vol:,.0f} shares — limited tradability",
+                description=f"Avg daily volume {vol:,.0f} shares — limited tradability (price unavailable for $ADV)",
                 severity="warning",
             ))
 
@@ -282,7 +317,15 @@ def analyse_nd(nd: NormalisedData) -> AnalysisResult:
 
     stop_factors = _check_stop_factors(nd, blocks, cr.company_type)
     rating   = _rating(overall)
-    decision = _decision(overall, stop_factors)
+
+    horizon_decisions = HorizonDecisions(
+        short=_decision(short,  stop_factors),
+        medium=_decision(medium, stop_factors),
+        long=_decision(long_,   stop_factors),
+    )
+    decision = horizon_decisions.medium   # backward-compat alias
+
+    fair_value = compute_fair_value(nd, cr.company_type)
 
     return AnalysisResult(
         ticker=nd.ticker,
@@ -295,6 +338,9 @@ def analyse_nd(nd: NormalisedData) -> AnalysisResult:
         rating=rating,
         decision=decision,
         data_confidence=nd.data_quality,
+        horizon_decisions=horizon_decisions,
+        config_version=current_version(),
+        fair_value=fair_value,
     )
 
 

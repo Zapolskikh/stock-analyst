@@ -144,16 +144,23 @@ def score_technical(nd: NormalisedData) -> BlockScore:
 
     Does NOT depend on Benchmark — technical scoring is type-agnostic
     (trend/momentum/drawdown are universal signals).
+
+    Coverage penalty: for a full 2-year price history the system can compute
+    7 signals (MA50, MA200, 3m/6m/12m momentum, drawdown, trend quality).
+    Shorter history means fewer signals; the sqrt(coverage) penalty prevents
+    a single available signal from dominating.
     """
     prices = nd.close_prices
     breakdown: dict[str, float] = {}
     notes: list[str] = []
+    attempted = 0
 
     if len(prices) < 10:
         return BlockScore(
             score=5.0,  # neutral when no data
             breakdown={},
             notes=["no price history — defaulting to neutral technical score"],
+            coverage=0.0,
         )
 
     current = prices[-1]
@@ -161,6 +168,7 @@ def score_technical(nd: NormalisedData) -> BlockScore:
     # --- Price vs MA50 -----------------------------------------------------
     ma50 = _sma(prices, 50)
     if ma50 is not None:
+        attempted += 1
         s = _score_price_vs_ma(current, ma50)
         if math.isfinite(s):
             breakdown["price_vs_ma50"] = s
@@ -173,6 +181,7 @@ def score_technical(nd: NormalisedData) -> BlockScore:
     # --- Price vs MA200 ----------------------------------------------------
     ma200 = _sma(prices, 200)
     if ma200 is not None:
+        attempted += 1
         s = _score_price_vs_ma(current, ma200)
         if math.isfinite(s):
             breakdown["price_vs_ma200"] = s
@@ -188,6 +197,7 @@ def score_technical(nd: NormalisedData) -> BlockScore:
                              ("momentum_12m", _MIN_MOM12)]:
         mom = _momentum(prices, lookback)
         if mom is not None:
+            attempted += 1
             s = _score_momentum(mom)
             if math.isfinite(s):
                 breakdown[label] = s
@@ -195,6 +205,7 @@ def score_technical(nd: NormalisedData) -> BlockScore:
     # --- Drawdown from 52-week high ----------------------------------------
     dd = _drawdown_from_high(prices, 252)
     if dd is not None:
+        attempted += 1
         s = _score_drawdown(dd)
         if math.isfinite(s):
             breakdown["drawdown"] = s
@@ -206,6 +217,7 @@ def score_technical(nd: NormalisedData) -> BlockScore:
     # --- Trend quality (% days above MA50 over last 3m) --------------------
     tq = _trend_quality(prices)
     if tq is not None:
+        attempted += 1
         s = _score_trend_quality(tq)
         if math.isfinite(s):
             breakdown["trend_quality"] = s
@@ -218,6 +230,7 @@ def score_technical(nd: NormalisedData) -> BlockScore:
         spy_mom = _momentum(spy_prices, _MIN_MOM3)
         stock_mom = _momentum(prices, _MIN_MOM3)
         if spy_mom is not None and stock_mom is not None:
+            attempted += 1
             rs = stock_mom - spy_mom
             # RS +10% → 10, +3% → 8, 0% → 6, -5% → 4, -15% → 2, -30% → 0
             pts = [(-30, 0), (-15, 2), (-5, 4), (0, 6), (3, 8), (10, 10)]
@@ -229,9 +242,14 @@ def score_technical(nd: NormalisedData) -> BlockScore:
                 elif rs < -10:
                     notes.append(f"underperforming SPY by {abs(rs):.0f}% (3m)")
 
-    final = avg_scores(breakdown)
     if not breakdown:
-        final = 5.0
-        notes.append("insufficient price data — neutral score")
+        return BlockScore(
+            score=5.0,
+            breakdown={},
+            notes=["insufficient price data — neutral score"],
+            coverage=0.0,
+        )
 
-    return BlockScore(score=final, breakdown=breakdown, notes=notes)
+    coverage = len(breakdown) / attempted if attempted > 0 else 1.0
+    final = avg_scores(breakdown, expected_count=attempted)
+    return BlockScore(score=final, breakdown=breakdown, notes=notes, coverage=coverage)

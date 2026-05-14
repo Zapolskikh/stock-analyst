@@ -35,12 +35,17 @@ CONCEPTS: dict[str, tuple[list[str], str]] = {
         [
             "Revenues",
             "RevenueFromContractWithCustomerExcludingAssessedTax",
+            "RevenueFromContractWithCustomerIncludingAssessedTax",
             "SalesRevenueNet",
-            "SalesRevenueGoodsNet",
+            # SalesRevenueGoodsNet intentionally excluded: goods-only (partial)
         ],
         "USD",
     ),
-    "gross_profit":      (["GrossProfit"], "USD"),
+    "gross_profit": (["GrossProfit"], "USD"),
+    "cost_of_revenue": (
+        ["CostOfRevenue", "CostOfGoodsAndServicesSold", "CostOfGoodsSold"],
+        "USD",
+    ),
     "operating_income":  (["OperatingIncomeLoss"], "USD"),
     "net_income":        (["NetIncomeLoss"], "USD"),
     "eps_diluted":       (["EarningsPerShareDiluted"], "USD/shares"),
@@ -215,10 +220,41 @@ def fetch_fundamentals(ticker: str) -> dict[str, pd.DataFrame]:
 
     result: dict[str, pd.DataFrame] = {}
     for metric, (tags, unit) in CONCEPTS.items():
+        frames: list[pd.DataFrame] = []
         for tag in tags:
             df = _extract_concept(facts, tag, preferred_unit=unit)
             if not df.empty:
-                result[metric] = df
-                break  # first matching tag wins
+                frames.append(df)
+
+        if not frames:
+            continue
+
+        if len(frames) == 1:
+            result[metric] = frames[0]
+        else:
+            # Priority-based combination: the tag listed FIRST in CONCEPTS has
+            # the highest priority.  For any (end, form) period covered by a
+            # higher-priority tag, its value wins — lower-priority tags only
+            # fill in periods that are genuinely missing from higher-priority tags.
+            # This prevents partial/segmented tags (e.g. goods-only revenue) from
+            # a later filing date from overriding complete figures.
+            combined = frames[0].copy()
+            for next_frame in frames[1:]:
+                existing = set(
+                    zip(combined["end"].dt.strftime("%Y-%m-%d"), combined["form"])
+                )
+                gaps = next_frame[
+                    ~next_frame.apply(
+                        lambda r: (r["end"].strftime("%Y-%m-%d"), r["form"]) in existing,
+                        axis=1,
+                    )
+                ]
+                if not gaps.empty:
+                    combined = (
+                        pd.concat([combined, gaps], ignore_index=True)
+                        .sort_values("end")
+                        .reset_index(drop=True)
+                    )
+            result[metric] = combined
 
     return result

@@ -17,16 +17,20 @@ stock-analyst/
 │   ├── data/
 │   │   ├── cache.py            # TTL file cache (parquet / json)
 │   │   ├── price.py            # yfinance wrapper
-│   │   ├── sec_edgar.py        # SEC EDGAR XBRL fetcher
-│   │   └── normalizer.py       # raw → NormalisedData
+│   │   ├── sec_edgar.py        # SEC EDGAR XBRL fetcher (10-K + 10-Q)
+│   │   └── normalizer.py       # raw → NormalisedData (incl. TTM from 10-Q)
 │   │
 │   ├── classifier.py           # NormalisedData → CompanyType
 │   │
+│   ├── ai/
+│   │   └── connector.py        # AI verifier: NullConnector / ClaudeConnector / OllamaConnector
+│   │
 │   ├── models/
-│   │   └── benchmarks.py       # CompanyType → Benchmark (weights + thresholds)
+│   │   ├── benchmarks.py       # CompanyType → Benchmark (weights + thresholds)
+│   │   └── config_version.py   # ConfigMeta + version registry (calibration provenance)
 │   │
 │   ├── scoring/
-│   │   ├── base.py             # BlockScore dataclass + avg_scores()
+│   │   ├── base.py             # BlockScore (+ coverage field) + avg_scores()
 │   │   ├── quality.py          # score_quality(nd, bm) → BlockScore
 │   │   ├── valuation.py        # score_valuation(nd, bm) → BlockScore
 │   │   ├── technical.py        # score_technical(nd) → BlockScore
@@ -34,7 +38,7 @@ stock-analyst/
 │   │   └── style_fit.py        # score_style_fit(nd, bm) → BlockScore
 │   │
 │   ├── engine/
-│   │   └── engine.py           # analyse(ticker) / analyse_nd(nd) → AnalysisResult
+│   │   └── engine.py           # analyse_nd(nd) → AnalysisResult (+ HorizonDecisions)
 │   │
 │   ├── output/
 │   │   └── formatter.py        # format_report() / format_brief()
@@ -47,12 +51,14 @@ stock-analyst/
     ├── test_cache.py           # 8 tests
     ├── test_price.py           # 8 tests
     ├── test_sec_edgar.py       # 12 tests
-    ├── test_charts.py          # 10 tests
-    ├── test_normalizer.py      # 48 tests
+    ├── test_charts.py          # 10 tests  (excluded: requires plotly)
+    ├── test_normalizer.py      # 66 tests  (incl. TTM)
     ├── test_classifier.py      # 36 tests
     ├── test_benchmarks.py      # 68 tests
-    ├── test_scoring.py         # 52 tests
-    └── test_engine.py          # 52 tests  — всего: 294
+    ├── test_scoring.py         # 87 tests  (incl. coverage penalty)
+    ├── test_engine.py          # 75 tests  (incl. horizon decisions)
+    ├── test_ai_connector.py    # 45 tests
+    └── test_config_version.py # 18 tests  — итого: 424 (без test_charts)
 ```
 
 ---

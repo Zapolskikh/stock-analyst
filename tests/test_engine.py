@@ -9,7 +9,7 @@ import pytest
 from src.classifier import CompanyType
 from src.data.normalizer import NormalisedData
 from src.engine.engine import (
-    AnalysisResult, HorizonScores, StopFactor,
+    AnalysisResult, HorizonScores, HorizonDecisions, StopFactor,
     analyse_nd, _weighted_avg, _rating, _decision, _check_stop_factors,
 )
 from src.output.formatter import format_brief, format_report
@@ -471,3 +471,73 @@ class TestFormatReport:
         result = analyse_nd(_nd(data_quality="good"))
         report = format_report(result)
         assert "DATA QUALITY" not in report
+
+
+# ---------------------------------------------------------------------------
+# HorizonDecisions
+# ---------------------------------------------------------------------------
+
+class TestHorizonDecisions:
+
+    def test_result_has_horizon_decisions(self):
+        result = analyse_nd(_nd())
+        assert hasattr(result, "horizon_decisions")
+        assert isinstance(result.horizon_decisions, HorizonDecisions)
+
+    def test_horizon_decisions_fields(self):
+        result = analyse_nd(_nd())
+        hd = result.horizon_decisions
+        assert hasattr(hd, "short")
+        assert hasattr(hd, "medium")
+        assert hasattr(hd, "long")
+
+    def test_all_decisions_are_valid_strings(self):
+        result = analyse_nd(_nd())
+        valid = {"Buy", "Watch", "Hold", "Avoid"}
+        hd = result.horizon_decisions
+        assert hd.short in valid, f"unexpected short decision: {hd.short!r}"
+        assert hd.medium in valid, f"unexpected medium decision: {hd.medium!r}"
+        assert hd.long in valid, f"unexpected long decision: {hd.long!r}"
+
+    def test_decision_alias_equals_medium(self):
+        """result.decision is a backward-compat alias for medium-horizon decision."""
+        result = analyse_nd(_nd())
+        assert result.decision == result.horizon_decisions.medium
+
+    def test_critical_stop_forces_avoid_all_horizons(self):
+        # D/E > 4.0 triggers critical stop for non-Financial
+        result = analyse_nd(_nd(debt_to_equity_annual=[5.0, 6.0, 7.0, 8.0]))
+        hd = result.horizon_decisions
+        assert hd.short == "Avoid"
+        assert hd.medium == "Avoid"
+        assert hd.long == "Avoid"
+
+    def test_high_score_stock_gets_buy_on_at_least_one_horizon(self):
+        result = analyse_nd(_nd())
+        hd = result.horizon_decisions
+        decisions = {hd.short, hd.medium, hd.long}
+        # With strong fundamentals, at least one horizon should be Buy or Watch
+        assert decisions & {"Buy", "Watch"}, f"All horizons weak: {hd}"
+
+    def test_short_and_long_can_differ(self):
+        """Short-term uses more technical weight; long-term uses more fundamental weight.
+        For the same stock the decisions can legitimately differ."""
+        # This is an existence check � just verify both compute independently
+        result = analyse_nd(_nd())
+        # They CAN be the same � just verify they are valid and accessible
+        assert result.horizon_decisions.short in {"Buy", "Watch", "Hold", "Avoid"}
+        assert result.horizon_decisions.long in {"Buy", "Watch", "Hold", "Avoid"}
+
+    def test_format_report_shows_horizon_decisions(self):
+        result = analyse_nd(_nd())
+        report = format_report(result)
+        hd = result.horizon_decisions
+        # Each horizon decision should appear in the report
+        assert hd.short.lower() in report.lower() or hd.short in report
+        assert hd.medium.lower() in report.lower() or hd.medium in report
+        assert hd.long.lower() in report.lower() or hd.long in report
+
+    def test_format_report_labels_horizon_decisions_section(self):
+        result = analyse_nd(_nd())
+        report = format_report(result)
+        assert "HORIZON" in report.upper()

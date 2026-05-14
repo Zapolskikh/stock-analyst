@@ -99,9 +99,32 @@ class NormalisedData:
     dividend_yield: Optional[float] = None  # 0.0–1.0 fraction
     avg_volume: Optional[float] = None       # average daily volume (shares)
 
+    # --- Analyst consensus (from yfinance) --------------------------------
+    forward_eps: Optional[float] = None              # analyst consensus forward EPS
+    analyst_target_median: Optional[float] = None    # median analyst price target
+    analyst_target_mean: Optional[float] = None      # mean analyst price target
+    analyst_count: Optional[int] = None              # number of analyst opinions
+
     # --- Price history (last ≤252 trading days, newest last) ---------------
     close_prices: list[float] = field(default_factory=list)
     spy_close_prices: list[float] = field(default_factory=list)  # SPY closes for relative strength
+
+    # --- Trailing twelve months (TTM) from quarterly 10-Q data ---------------
+    # Flow metrics: sum of last 4 quarterly values (income statement / cash flow)
+    ttm_revenue:           Optional[float] = None
+    ttm_gross_profit:      Optional[float] = None
+    ttm_operating_income:  Optional[float] = None
+    ttm_net_income:        Optional[float] = None
+    ttm_operating_cf:      Optional[float] = None
+    ttm_capex:             Optional[float] = None
+    ttm_eps_diluted:       Optional[float] = None
+    # Derived TTM
+    ttm_fcf:               Optional[float] = None   # ttm_operating_cf − ttm_capex
+    ttm_gross_margin:      Optional[float] = None   # %
+    ttm_operating_margin:  Optional[float] = None   # %
+    ttm_net_margin:        Optional[float] = None   # %
+    ttm_fcf_margin:        Optional[float] = None   # %
+    ttm_as_of:             Optional[str]   = None   # ISO end-date of latest Q used
 
     # --- Data-quality summary ----------------------------------------------
     years_of_history: int = 0
@@ -124,6 +147,26 @@ def _annual_series(df: pd.DataFrame | None) -> tuple[list[int], list[float]]:
     ann = df[df["form"] == "10-K"].copy()
     if ann.empty:
         return [], []
+
+    # 10-K filings (notably Apple) can include quarterly comparative rows
+    # alongside the annual total.  Keep only full-year rows (300–400 days).
+    #
+    # EXCEPTION: balance sheet (instant) metrics in EDGAR have start == end,
+    # giving _days == 0.  When all rows are instant, skip the period filter —
+    # applying it would silently drop every balance sheet row (equity, debt …).
+    if "start" in ann.columns:
+        ann["_days"] = (ann["end"] - ann["start"]).dt.days
+        all_instant = (ann["_days"] == 0).all()
+        if not all_instant:
+            ann = ann[(ann["_days"] >= 300) & (ann["_days"] <= 400)]
+
+    if ann.empty:
+        return [], []
+
+    # Deduplicate: keep the most recently filed value for each fiscal year-end
+    if "filed" in ann.columns:
+        ann = ann.sort_values("filed", ascending=False).drop_duplicates("end", keep="first")
+
     ann = ann.sort_values("end")
     years = ann["end"].dt.year.tolist()
     values = ann["val"].tolist()
@@ -224,6 +267,77 @@ def _data_quality(
     return "poor"
 
 
+def _quarterly_series(df: pd.DataFrame | None) -> tuple[list[str], list[float]]:
+    """Extract sorted single-quarter (10-Q) values from a raw EDGAR DataFrame.
+
+    SEC EDGAR 10-Q filings contain both true single-quarter rows (period ≈ 90 days)
+    and cumulative YTD rows (period ≈ 180–270 days) under the same form type.
+    This function keeps only single-quarter rows by requiring the period length
+    to be between 60 and 105 days, eliminating YTD and near-annual periods.
+
+    Returns *(end_dates_iso, values)* — both lists, oldest first.
+    """
+    if df is None or df.empty:
+        return [], []
+    q = df[df["form"] == "10-Q"].copy()
+    if q.empty:
+        return [], []
+
+    # Filter to single-quarter periods only (60–105 days)
+    if "start" in q.columns:
+        q["_days"] = (q["end"] - q["start"]).dt.days
+        q = q[(q["_days"] >= 60) & (q["_days"] <= 105)]
+
+    if q.empty:
+        return [], []
+
+    # Deduplicate: keep the most recently filed value for each end date
+    if "filed" in q.columns:
+        q = q.sort_values("filed", ascending=False).drop_duplicates("end", keep="first")
+
+    q = q.sort_values("end")
+    dates = q["end"].dt.strftime("%Y-%m-%d").tolist()
+    values = q["val"].tolist()
+    return dates, values
+
+
+def _compute_ttm_flow(values: list[float]) -> Optional[float]:
+    """Return the trailing-twelve-month total by summing the last 4 quarters.
+
+    Returns *None* when fewer than 4 valid quarterly values are available.
+    """
+    recent = [v for v in values[-4:] if _valid(v)]
+    if len(recent) < 4:
+        return None
+    return sum(recent)
+
+
+def _compute_ttm_aligned(
+    num_dates: list[str],
+    num_vals: list[float],
+    den_dates: list[str],
+    den_vals: list[float],
+    n: int = 4,
+) -> tuple[Optional[float], Optional[float]]:
+    """Return (ttm_numerator, ttm_denominator) computed over the same *n* quarters.
+
+    Aligns numerator and denominator by matching end dates so that e.g.
+    gross_margin = ttm_gross_profit / ttm_revenue uses exactly the same
+    set of quarters. Falls back to None when fewer than *n* common dates exist.
+    """
+    num_map = dict(zip(num_dates, num_vals))
+    den_map = dict(zip(den_dates, den_vals))
+    common = sorted(set(num_map) & set(den_map))
+    if len(common) < n:
+        return None, None
+    recent = common[-n:]
+    num_sum = sum(num_map[d] for d in recent if _valid(num_map[d]))
+    den_sum = sum(den_map[d] for d in recent if _valid(den_map[d]))
+    if not _valid(num_sum) or not _valid(den_sum):
+        return None, None
+    return num_sum, den_sum
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -257,7 +371,7 @@ def normalise(
     # ------------------------------------------------------------------
     raw: dict[str, tuple[list[int], list[float]]] = {}
     for metric in [
-        "revenue", "gross_profit", "operating_income", "net_income",
+        "revenue", "gross_profit", "cost_of_revenue", "operating_income", "net_income",
         "operating_cf", "capex", "equity", "total_assets", "total_liabilities",
         "long_term_debt", "eps_diluted", "rd_expense",
         "shares_outstanding", "cash", "da_expense",
@@ -293,7 +407,13 @@ def normalise(
         return _align(ref_years, y, v)
 
     rev  = aligned("revenue")
-    gp   = aligned("gross_profit")
+    # gross_profit: prefer direct tag; fall back to revenue - cost_of_revenue
+    _gp_direct = aligned("gross_profit")
+    _cogs      = aligned("cost_of_revenue")
+    gp = [
+        gv if _valid(gv) else (rv - cv if _valid(rv) and _valid(cv) else float("nan"))
+        for gv, rv, cv in zip(_gp_direct, rev, _cogs)
+    ]
     oi   = aligned("operating_income")
     ni   = aligned("net_income")
     ocf  = aligned("operating_cf")
@@ -352,9 +472,22 @@ def normalise(
     nd.beta           = _safe_float(info, "beta")
     nd.sector         = info.get("sector") or None
     nd.industry       = info.get("industry") or None
-    raw_yield         = _safe_float(info, "dividendYield")
-    nd.dividend_yield = raw_yield  # already 0.0–1.0 in yfinance
-    nd.avg_volume     = _safe_float(info, "averageVolume") or _safe_float(info, "averageDailyVolume10Day")
+    raw_yield = _safe_float(info, "dividendYield")
+    # yfinance sometimes returns dividend yield as a percentage (e.g. 2.0 for 2%)
+    # rather than as a decimal fraction (0.02).  Values > 0.25 are impossible as
+    # fractions for any normal equity, so divide by 100 to normalise to 0–1.
+    if raw_yield is not None and raw_yield > 0.25:
+        raw_yield = raw_yield / 100.0
+    nd.dividend_yield = raw_yield
+    nd.avg_volume = (
+        _safe_float(info, "averageVolume")
+        or _safe_float(info, "averageDailyVolume10Day")
+    )
+    nd.forward_eps             = _safe_float(info, "forwardEps")
+    nd.analyst_target_median   = _safe_float(info, "targetMedianPrice")
+    nd.analyst_target_mean     = _safe_float(info, "targetMeanPrice")
+    analyst_count = _safe_float(info, "numberOfAnalystOpinions")
+    nd.analyst_count = int(analyst_count) if analyst_count is not None else None
 
     # Fallback price from OHLCV if info didn't have it
     if nd.current_price is None and price_df is not None and not price_df.empty:
@@ -374,5 +507,50 @@ def normalise(
     nd.years_of_history = len(ref_years)
     nd.missing_metrics  = missing
     nd.data_quality     = _data_quality(nd.years_of_history, missing)
+
+    # ------------------------------------------------------------------
+    # 8. TTM from quarterly (10-Q) filings
+    # ------------------------------------------------------------------
+    _ttm_flow_metrics = [
+        ("revenue",          "ttm_revenue"),
+        ("gross_profit",     "ttm_gross_profit"),
+        ("operating_income", "ttm_operating_income"),
+        ("net_income",       "ttm_net_income"),
+        ("operating_cf",     "ttm_operating_cf"),
+        ("capex",            "ttm_capex"),
+        ("eps_diluted",      "ttm_eps_diluted"),
+    ]
+    for metric, attr in _ttm_flow_metrics:
+        _, qvals = _quarterly_series(fundamentals.get(metric))
+        setattr(nd, attr, _compute_ttm_flow(qvals))
+
+    # Derived TTM values
+    if nd.ttm_operating_cf is not None and nd.ttm_capex is not None:
+        nd.ttm_fcf = nd.ttm_operating_cf - nd.ttm_capex
+
+    # TTM margins: use aligned TTM (same quarters for numerator and denominator)
+    # to avoid mixing misaligned quarters when revenue and numerator series have
+    # different end-dates (common in SEC EDGAR XBRL data across companies).
+    rev_dates, rev_vals = _quarterly_series(fundamentals.get("revenue"))
+
+    def _ttm_margin_aligned(numerator_metric: str) -> Optional[float]:
+        num_dates, num_vals = _quarterly_series(fundamentals.get(numerator_metric))
+        num_ttm, den_ttm = _compute_ttm_aligned(num_dates, num_vals, rev_dates, rev_vals)
+        if num_ttm is None or den_ttm is None or den_ttm == 0:
+            return None
+        return num_ttm / den_ttm * 100.0
+
+    nd.ttm_gross_margin    = _ttm_margin_aligned("gross_profit")
+    nd.ttm_operating_margin = _ttm_margin_aligned("operating_income")
+    nd.ttm_net_margin      = _ttm_margin_aligned("net_income")
+    if nd.ttm_fcf is not None:
+        # FCF margin: use the same revenue TTM that was independently computed
+        rev_ttm = nd.ttm_revenue
+        if rev_ttm and rev_ttm > 0:
+            nd.ttm_fcf_margin = nd.ttm_fcf / rev_ttm * 100.0
+
+    # Record the end-date of the latest quarterly filing used for TTM
+    if rev_dates:
+        nd.ttm_as_of = rev_dates[-1]
 
     return nd

@@ -205,7 +205,7 @@ def _score_pharma(nd: NormalisedData, signals: list[str]) -> float:
     sector = (nd.sector or "").lower()
     industry = (nd.industry or "").lower()
     if any(k in sector + industry for k in ("health", "pharma", "biotech", "medical", "drug")):
-        score += 40; signals.append(f"sector/industry: {nd.sector} / {nd.industry}")
+        score += 70; signals.append(f"sector/industry: {nd.sector} / {nd.industry}")
 
     # R&D intensity (R&D / Revenue)
     rd_ratio = None
@@ -238,9 +238,12 @@ def _score_dividend_defensive(nd: NormalisedData, signals: list[str]) -> float:
         elif div >= 0.015:
             score += 20; signals.append(f"dividend yield {div * 100:.1f}%")
 
-    # Low revenue growth
+    # Low revenue growth — but NOT for Technology/semiconductor companies that
+    # can have cyclical dips without being structurally "defensive"
+    sector_lc = (nd.sector or "").lower()
+    is_tech_sector = any(k in sector_lc for k in ("technology", "communication", "semiconductor"))
     avg_rev_growth = _recent_mean(nd.revenue_growth_annual)
-    if avg_rev_growth is not None and avg_rev_growth < 8:
+    if avg_rev_growth is not None and avg_rev_growth < 8 and not is_tech_sector:
         score += 15; signals.append(f"low revenue growth {avg_rev_growth:.0f}% (defensive)")
 
     # Sector
@@ -248,9 +251,18 @@ def _score_dividend_defensive(nd: NormalisedData, signals: list[str]) -> float:
     if any(k in sector for k in ("utilities", "consumer defensive", "real estate", "staples")):
         score += 25; signals.append(f"sector: {nd.sector}")
 
-    # Stable earnings
+    # Stable earnings: all years positive AND no sharp YoY drop (> 30%) in last 3 years.
+    # Companies with rapidly declining earnings (NKE, SBUX) are not "defensive".
     pos_ni = sum(1 for v in nd.net_income_annual if math.isfinite(v) and v > 0)
-    if pos_ni == len([v for v in nd.net_income_annual if math.isfinite(v)]) and pos_ni >= 3:
+    all_positive = pos_ni == len([v for v in nd.net_income_annual if math.isfinite(v)]) and pos_ni >= 3
+    ni_stable = True
+    if all_positive:
+        ni_recent = [v for v in nd.net_income_annual[-3:] if math.isfinite(v) and v > 0]
+        for i in range(1, len(ni_recent)):
+            if ni_recent[i] < 0.70 * ni_recent[i - 1]:   # >30% single-year drop
+                ni_stable = False
+                break
+    if all_positive and ni_stable:
         score += 15; signals.append("consistently positive net income")
 
     return min(score, 100.0)
@@ -284,8 +296,11 @@ def _score_financial(nd: NormalisedData, signals: list[str]) -> float:
     score = 0.0
 
     sector = (nd.sector or "").lower()
+    industry = (nd.industry or "").lower()
     if any(k in sector for k in ("financial", "bank", "insurance", "credit")):
-        score += 50; signals.append(f"sector: {nd.sector}")
+        score += 60; signals.append(f"sector: {nd.sector}")
+    elif any(k in industry for k in ("bank", "insurance", "asset management", "financial")):
+        score += 60; signals.append(f"industry: {nd.industry}")
 
     # Financials often have high liabilities (leverage by design)
     ltd = _last_valid(nd.long_term_debt_annual)
@@ -299,12 +314,22 @@ def _score_financial(nd: NormalisedData, signals: list[str]) -> float:
 def _score_turnaround(nd: NormalisedData, signals: list[str]) -> float:
     score = 0.0
 
-    # Negative net income in recent years
+    # Negative net income in recent years.
+    # Exception: high-growth companies (avg rev growth > 20%) often show losses
+    # due to deliberate R&D / sales investment — they are not distressed turnarounds.
+    avg_rev_growth = _recent_mean(nd.revenue_growth_annual)
+    is_growth_mode = avg_rev_growth is not None and avg_rev_growth > 20
+
     neg_ni = sum(1 for v in nd.net_income_annual[-3:] if math.isfinite(v) and v < 0)
-    if neg_ni >= 2:
-        score += 35; signals.append(f"{neg_ni} of last 3 years with negative net income")
-    elif neg_ni == 1:
-        score += 15
+    if not is_growth_mode:
+        if neg_ni >= 2:
+            score += 35; signals.append(f"{neg_ni} of last 3 years with negative net income")
+        elif neg_ni == 1:
+            score += 15
+    else:
+        # Growth-mode loss: give a softer signal only
+        if neg_ni >= 2:
+            score += 10; signals.append(f"{neg_ni} of last 3 years negative NI (growth-mode losses)")
 
     # Recovering revenue after decline
     growth_vals = [v for v in nd.revenue_growth_annual if math.isfinite(v)]

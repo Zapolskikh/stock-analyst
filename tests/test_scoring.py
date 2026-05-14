@@ -97,6 +97,16 @@ class TestBlockScore:
         bs = BlockScore(score=7.5)
         assert abs(bs.score - 7.5) < 1e-9
 
+    def test_coverage_defaults_to_1(self):
+        bs = BlockScore(score=7.0)
+        assert bs.coverage == 1.0
+
+    def test_coverage_clamped(self):
+        bs = BlockScore(score=5.0, coverage=1.5)
+        assert bs.coverage == 1.0
+        bs2 = BlockScore(score=5.0, coverage=-0.1)
+        assert bs2.coverage == 0.0
+
 
 class TestAvgScores:
     def test_simple_average(self):
@@ -110,6 +120,34 @@ class TestAvgScores:
 
     def test_all_nan_returns_zero(self):
         assert avg_scores({"a": float("nan")}) == 0.0
+
+    def test_no_penalty_when_full_coverage(self):
+        # 2 available out of 2 expected → no penalty
+        result = avg_scores({"a": 8.0, "b": 6.0}, expected_count=2)
+        assert abs(result - 7.0) < 1e-9
+
+    def test_penalty_when_sparse(self):
+        # 1 available out of 4 expected → penalty of sqrt(1/4) = 0.5
+        result = avg_scores({"a": 10.0}, expected_count=4)
+        assert abs(result - 10.0 * 0.5) < 1e-9
+
+    def test_penalty_two_of_seven(self):
+        # 2 of 7 → sqrt(2/7) ≈ 0.535
+        import math as _math
+        result = avg_scores({"a": 10.0, "b": 10.0}, expected_count=7)
+        expected = 10.0 * _math.sqrt(2 / 7)
+        assert abs(result - expected) < 1e-9
+
+    def test_no_penalty_without_expected_count(self):
+        # backward-compat: no expected_count → no penalty
+        result = avg_scores({"a": 10.0})
+        assert abs(result - 10.0) < 1e-9
+
+    def test_coverage_penalty_never_inflates(self):
+        # penalty can only reduce, never increase
+        full = avg_scores({"a": 8.0, "b": 6.0}, expected_count=2)
+        partial = avg_scores({"a": 8.0}, expected_count=2)
+        assert partial < full
 
 
 # ---------------------------------------------------------------------------
@@ -161,6 +199,31 @@ class TestQuality:
         )
         bs = score_quality(nd, _bm())
         assert len(bs.notes) >= 1
+
+    def test_coverage_reported(self):
+        bs = score_quality(_nd(), _bm())
+        assert 0.0 < bs.coverage <= 1.0
+
+    def test_sparse_data_scores_lower_than_full(self):
+        # Full data company
+        full = _nd()
+        # Sparse company — only revenue_growth data, everything else NaN
+        nan_list = [float("nan")] * 4
+        sparse = _nd(
+            eps_growth_annual=nan_list,
+            gross_margin_annual=nan_list,
+            operating_margin_annual=nan_list,
+            net_margin_annual=nan_list,
+            roe_annual=nan_list,
+            fcf_annual=[float("nan")] * 4,
+        )
+        bm = _bm()
+        assert score_quality(sparse, bm).score < score_quality(full, bm).score
+
+    def test_full_coverage_equals_1(self):
+        bs = score_quality(_nd(), _bm())
+        # With complete data all 7 metrics should score → coverage ≈ 1.0
+        assert bs.coverage == pytest.approx(1.0, abs=0.01)
 
 
 # ---------------------------------------------------------------------------
@@ -626,20 +689,25 @@ class TestRelativeStrength:
 # ---------------------------------------------------------------------------
 
 class TestLiquidityStopFactor:
+    """Liquidity stop factors now use dollar ADV (avg_volume × current_price)."""
+
     def test_very_illiquid_triggers_warning(self):
-        nd = _nd(avg_volume=50_000)
+        # $50 stock × 50k shares/day = $2.5M/day ADV < $5M threshold
+        nd = _nd(avg_volume=50_000, current_price=50.0)
         factors = _check_stop_factors(nd, {})
         names = [f.name for f in factors]
         assert "Low Liquidity" in names
 
     def test_limited_liquidity_triggers_warning(self):
-        nd = _nd(avg_volume=300_000)
+        # $30 stock × 300k shares/day = $9M/day ADV → $5M–$20M range
+        nd = _nd(avg_volume=300_000, current_price=30.0)
         factors = _check_stop_factors(nd, {})
         names = [f.name for f in factors]
         assert "Limited Liquidity" in names
 
     def test_liquid_stock_no_liquidity_warning(self):
-        nd = _nd(avg_volume=5_000_000)
+        # $50 stock × 1M shares/day = $50M/day ADV > $20M threshold
+        nd = _nd(avg_volume=1_000_000, current_price=50.0)
         factors = _check_stop_factors(nd, {})
         names = [f.name for f in factors]
         assert "Low Liquidity" not in names
@@ -650,6 +718,20 @@ class TestLiquidityStopFactor:
         factors = _check_stop_factors(nd, {})
         names = [f.name for f in factors]
         assert "Low Liquidity" not in names
+
+    def test_fallback_share_threshold_when_no_price(self):
+        # No current_price → falls back to share-count threshold: 50k < 100k → Low Liquidity
+        nd = _nd(avg_volume=50_000, current_price=None)
+        factors = _check_stop_factors(nd, {})
+        names = [f.name for f in factors]
+        assert "Low Liquidity" in names
+
+    def test_high_share_volume_liquid_when_cheap_stock(self):
+        # $2 stock × 600k shares = $1.2M/day ADV → Low Liquidity (dollar-based)
+        nd = _nd(avg_volume=600_000, current_price=2.0)
+        factors = _check_stop_factors(nd, {})
+        names = [f.name for f in factors]
+        assert "Low Liquidity" in names
 
 
 # ---------------------------------------------------------------------------

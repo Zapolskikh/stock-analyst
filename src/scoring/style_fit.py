@@ -64,9 +64,13 @@ def score_style_fit(nd: NormalisedData, bm: Benchmark) -> BlockScore:
     Compute Style Fit score — how well the company matches its archetype.
     Uses only *_style and special (rd_to_revenue, dividend_yield_pct)
     thresholds from the Benchmark.
+
+    Coverage penalty: each benchmark defines the style metrics expected for its
+    company type. Missing metrics are penalised via sqrt(coverage).
     """
     breakdown: dict[str, float] = {}
     notes: list[str] = []
+    attempted = 0
 
     # Only evaluate metrics that end with _style or are special style metrics
     style_keys = [k for k in bm.thresholds
@@ -76,15 +80,17 @@ def score_style_fit(nd: NormalisedData, bm: Benchmark) -> BlockScore:
         extractor = _METRIC_EXTRACTORS.get(key)
         if extractor is None:
             continue
+        attempted += 1
         value = extractor(nd)
         s = bm.score_metric(key, value)
         if math.isfinite(s):
             breakdown[key] = s
 
-    final = avg_scores(breakdown)
     if not breakdown:
         # Fall back to quality signals if no style-specific metrics exist
-        final = 5.0
         notes.append("no style-specific thresholds — neutral style fit")
+        return BlockScore(score=5.0, breakdown={}, notes=notes, coverage=0.0)
 
-    return BlockScore(score=final, breakdown=breakdown, notes=notes)
+    coverage = len(breakdown) / attempted if attempted > 0 else 1.0
+    final = avg_scores(breakdown, expected_count=attempted)
+    return BlockScore(score=final, breakdown=breakdown, notes=notes, coverage=coverage)
