@@ -663,7 +663,7 @@
   Type            : Hypergrowth Tech  (confidence 73%)
   Rating             : Good Candidate
   Overall score      : 72.0 / 100
-  Investment Quality : Watch
+  Investment Quality : Buy on Limit
   Entry Decision     : Accumulate on Pullback
 
   Short-term      : 70.9 / 100
@@ -708,7 +708,7 @@
 
   Текущая цена   : $235.74
   Лимитная цена  : $211.51  (-10.3% от текущей)
-  Ждём           : до 21 календарных дней
+  Ждём           : до 6 календарных дней
   Горизонт       : medium (3–12 months)  (макс. 9 мес.)
   Цель выхода    : $265.00
   Стоп-лосс      : $188.24
@@ -719,7 +719,7 @@
     • Price $235.74 is 11.5% above fair value — wait for pullback
     • Exit target: analyst consensus $265.00
     • Stop loss: below MA200 ($185.73) at $209.81
-    • Limit 10.3% below current price — keep order 21 calendar days
+    • Limit 10.3% below current price — keep order 6 calendar days (ATR-14 3.42%/day → estimated 4.5 trading days to fill)
 
 ──────────────────────────────────────────────────────────────────────
   STEP 10 — AI CONTEXT REVIEW PROMPT
@@ -735,7 +735,7 @@ You have NO internet access. Work ONLY with the structured data provided below.
 Your role is to complement (not override) a deterministic quantitative scoring model.
 The model has already done the math. You provide the CONTEXTUAL LAYER:
 
-1. VALIDATE — Does the quant decision (Watch) make sense given the data?
+1. VALIDATE — Does the quant decision (Buy on Limit) make sense given the data?
 2. DISTORTIONS — Are any metrics likely distorted? (one-off events, cyclical peaks,
    accounting artefacts, M&A noise, split contamination, base-effect EPS jumps,
    elevated accruals, CapEx supercycles compressing FCF)
@@ -790,7 +790,7 @@ DATA:
     "medium": 69.5,
     "long": 70.4
   },
-  "quant_decision": "Watch",
+  "quant_decision": "Buy on Limit",
   "market_data": {
     "current_price": 235.74,
     "market_cap_B": 5709.75,
@@ -926,7 +926,7 @@ DATA:
       "Price $235.74 is 11.5% above fair value — wait for pullback",
       "Exit target: analyst consensus $265.00",
       "Stop loss: below MA200 ($185.73) at $209.81",
-      "Limit 10.3% below current price — keep order 21 calendar days"
+      "Limit 10.3% below current price — keep order 6 calendar days (ATR-14 3.42%/day → estimated 4.5 trading days to fill)"
     ]
   },
   "key_quant_notes": [

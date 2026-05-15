@@ -126,6 +126,7 @@ class NormalisedData:
     # --- Price history (last ≤252 trading days, newest last) ---------------
     close_prices: list[float] = field(default_factory=list)
     spy_close_prices: list[float] = field(default_factory=list)  # SPY closes for relative strength
+    atr_pct: Optional[float] = None  # 14-day ATR as % of current price (volatility proxy)
 
     # --- Trailing twelve months (TTM) from quarterly 10-Q data ---------------
     # Flow metrics: sum of last 4 quarterly values (income statement / cash flow)
@@ -728,6 +729,27 @@ def normalise(
     if price_df is not None and not price_df.empty:
         closes = price_df["Close"].dropna().tail(252)
         nd.close_prices = [float(v) for v in closes]
+
+    # Compute ATR-14 (Average True Range, 14 days) as % of current price.
+    # True Range = max(High-Low, |High-PrevClose|, |Low-PrevClose|)
+    # ATR% = ATR / current_price × 100  → used to estimate limit order wait days.
+    if price_df is not None and not price_df.empty and nd.current_price and nd.current_price > 0:
+        _atr_n = 14
+        _cols_ok = all(c in price_df.columns for c in ("High", "Low", "Close"))
+        if _cols_ok and len(price_df) >= _atr_n + 1:
+            _hi  = price_df["High"].astype(float).values
+            _lo  = price_df["Low"].astype(float).values
+            _cl  = price_df["Close"].astype(float).values
+            _tr_list = []
+            for _i in range(1, len(_cl)):
+                _tr_list.append(max(
+                    _hi[_i] - _lo[_i],
+                    abs(_hi[_i] - _cl[_i - 1]),
+                    abs(_lo[_i] - _cl[_i - 1]),
+                ))
+            _recent_tr = _tr_list[-_atr_n:]
+            _atr_val = sum(_recent_tr) / len(_recent_tr)
+            nd.atr_pct = round(_atr_val / nd.current_price * 100, 3)
 
     if spy_prices:
         nd.spy_close_prices = list(spy_prices[-252:])

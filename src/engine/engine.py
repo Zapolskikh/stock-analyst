@@ -79,9 +79,8 @@ class TradeRecommendation:
     """
     Actionable trading recommendation derived from the full analysis.
 
-    action      : "Accumulate" | "Accumulate on Pullback" | "Watch" | "Avoid"
-                  "Speculative Turnaround" | "Defensive Hold"
-    entry_type  : "market" | "limit" | "watch" | "avoid"
+    action      : "Accumulate" | "Accumulate on Pullback" | "Avoid"
+    entry_type  : "market" | "limit" | "avoid"
     limit_price : target entry price for limit orders (None for market)
     limit_wait_days : calendar days to keep the limit order alive
     horizon_label   : "medium (3\u201312 months)" | "long (1\u20135 years)"
@@ -91,7 +90,7 @@ class TradeRecommendation:
     rationale       : list of human-readable reasons
     """
     action: str                       # see docstring above
-    entry_type: str                   # "market" | "limit" | "watch" | "avoid"
+    entry_type: str                   # "market" | "limit" | "avoid"
     horizon_label: str = ""           # "medium (3\u201312 months)" | "long (1\u20135 years)"
     hold_months: Optional[int] = None
     limit_price: Optional[float] = None
@@ -168,8 +167,8 @@ def _rating(score: float) -> str:
         return "Strong Candidate"
     if score >= 70:
         return "Good Candidate"
-    if score >= 55:
-        return "Neutral / Watchlist"
+    if score >= 60:
+        return "Borderline"
     if score >= 40:
         return "Weak"
     return "Avoid"
@@ -177,15 +176,11 @@ def _rating(score: float) -> str:
 
 def _decision(score: float, stop_factors: list[StopFactor]) -> str:
     has_critical = any(sf.severity == "critical" for sf in stop_factors)
-    if has_critical:
+    if has_critical or score < 60:
         return "Avoid"
     if score >= 70:
         return "Buy"
-    if score >= 55:
-        return "Watch"
-    if score >= 40:
-        return "Hold"
-    return "Avoid"
+    return "Buy on Limit"
 
 
 # D/E стоп не применяется к типам с нормальным структурным левериджем
@@ -466,7 +461,6 @@ def _compute_trade_recommendation(
     stop_factors: list[StopFactor],
     blocks: dict[str, BlockScore],
     fv: Optional[FairValueResult],
-    company_type: CompanyType = CompanyType.OTHER,
 ) -> TradeRecommendation:
     """
     Convert scoring results into a concrete trading recommendation.
@@ -474,16 +468,13 @@ def _compute_trade_recommendation(
     Actions
     -------
     Accumulate            — qualifies fully at current price (market order)
-    Accumulate on Pullback — good stock, but small discount improves R/R
-    Watch                 — score 55–60 or gate fails; monitor for entry
-    Avoid                 — score < 40 or critical risk
-    Speculative Turnaround — TURNAROUND type with recovery thesis, score 45–60
-    Defensive Hold        — DIVIDEND_DEFENSIVE / stable with score 55–65
+    Accumulate on Pullback — score ≥ 60, but wait for better entry via limit order
+    Avoid                 — score < 60 or critical stop factor
     """
     price = nd.current_price
     rationale: list[str] = []
 
-    # ── Skip conditions ──────────────────────────────────────────────────
+    # ── Hard gates ───────────────────────────────────────────────────────
     has_critical = any(sf.severity == "critical" for sf in stop_factors)
     if price is None or not math.isfinite(price) or price <= 0:
         return TradeRecommendation(action="Avoid", entry_type="avoid",
@@ -493,60 +484,10 @@ def _compute_trade_recommendation(
         return TradeRecommendation(action="Avoid", entry_type="avoid",
                                    rationale=["Critical risk factor: " + r for r in reasons])
     if overall_score < 60:
-        # Below entry threshold — determine label based on context and company_type
-        quality_bs       = blocks.get("quality")
-        eps_growth_score = (quality_bs.breakdown.get("eps_growth", 0) if quality_bs else 0)
-        quality_score_val = (quality_bs.score if quality_bs else 0)
-
-        # Speculative Turnaround: TURNAROUND type OR strong EPS recovery in weak business
-        turnaround_hint = (
-            company_type == CompanyType.TURNAROUND
-            or (eps_growth_score >= 7.0 and quality_score_val < 4.5)
-        )
-        if 45 <= overall_score < 60 and turnaround_hint:
-            return TradeRecommendation(
-                action="Speculative Turnaround",
-                entry_type="watch",
-                rationale=[
-                    f"Score {overall_score:.0f}/100 — below entry threshold; recovery thesis possible",
-                    "High EPS momentum in a business with weak overall fundamentals — confirm margin stabilisation before entry",
-                ],
-            )
-
-        # Defensive Hold: stable income-oriented types near the entry threshold
-        _DEFENSIVE_TYPES = frozenset({
-            CompanyType.DIVIDEND_DEFENSIVE,
-            CompanyType.PHARMA,
-            CompanyType.FINANCIAL,
-            CompanyType.MATURE_TECH,
-        })
-        if 55 <= overall_score < 60 and company_type in _DEFENSIVE_TYPES:
-            return TradeRecommendation(
-                action="Defensive Hold",
-                entry_type="watch",
-                rationale=[
-                    f"Score {overall_score:.0f}/100 — approaching entry threshold",
-                    "Stable business; hold if already in portfolio, but not a compelling new entry at current price",
-                ],
-            )
-
-        if overall_score >= 55:
-            return TradeRecommendation(
-                action="Watch",
-                entry_type="watch",
-                rationale=[f"Score {overall_score:.0f}/100 — approaching entry threshold; monitor for improvement"],
-            )
-        if overall_score < 40:
-            return TradeRecommendation(
-                action="Avoid",
-                entry_type="avoid",
-                rationale=[f"Score {overall_score:.0f}/100 — weak fundamentals, no entry case"],
-            )
-        # 40–55: neutral watchlist
         return TradeRecommendation(
-            action="Watch",
-            entry_type="watch",
-            rationale=[f"Score {overall_score:.0f}/100 — below minimum threshold (60); keep on watchlist"],
+            action="Avoid",
+            entry_type="avoid",
+            rationale=[f"Score {overall_score:.0f}/100 — below entry threshold (60)"],
         )
 
     # ── Horizon selection ────────────────────────────────────────────────
@@ -670,36 +611,55 @@ def _compute_trade_recommendation(
         limit_price = round(price * dip_pct, 2)
         rationale.insert(0, f"Score {overall_score:.0f}/100 — good but not exceptional; wait for {(1-dip_pct)*100:.0f}% dip")
 
-    # If limit is more than 15% below current price it won't fill within weeks —
-    # treat as Skip with an "interest zone" note rather than a phantom limit order.
-    pct_away = (price - limit_price) / price * 100
-    if pct_away > 15:
+    # If limit is more than 20% away the stock is materially overpriced vs fair
+    # value — a realistic pullback of that magnitude requires a bear market or
+    # earnings miss.  Treat this as Avoid rather than an impractical limit order.
+    _pct_check = (price - limit_price) / price * 100
+    if _pct_check > 20:
         return TradeRecommendation(
-            action="Watch",
-            entry_type="watch",
+            action="Avoid",
+            entry_type="avoid",
             rationale=[
-                f"Current price ${price:.2f} is {pct_away:.0f}% above entry zone ${limit_price:.2f}",
-                "Gap too large for a short-term limit order — watch until price approaches the zone",
+                f"Price ${price:.2f} is {_pct_check:.0f}% above fair value ${limit_price:.2f}",
+                "Stock materially overpriced — a limit order this far is impractical; revisit after re-rating",
             ],
         )
 
-    # How long to keep the limit order
     pct_away = (price - limit_price) / price * 100
-    if pct_away < 3:
-        wait_days = 7
-    elif pct_away < 5:
-        wait_days = 10
-    elif pct_away < 8:
-        wait_days = 14
+
+    # ── Dynamic wait_days based on ATR-14 ───────────────────────────────
+    # Intuition: if the stock moves X% per day on average (ATR%), and the
+    # limit is Y% away, it will reach the target in roughly Y/X trading days.
+    # We add a buffer (×1.5) to account for directionality uncertainty, then
+    # convert trading days → calendar days (×1.4, i.e. 5 trading = 7 calendar).
+    #
+    # Caps: min 2 calendar days (don't expire too fast), max 10 calendar days
+    # (beyond that the market context has changed — re-run the analysis).
+    # Fallback if ATR unavailable: use distance buckets (1%→2d, 3%→4d, 5%→6d).
+    atr_pct = nd.atr_pct  # 14-day ATR as % of price, or None
+    if atr_pct and atr_pct > 0:
+        trading_days_est = (pct_away / atr_pct) * 1.5   # directional buffer
+        calendar_days_est = trading_days_est * 1.4       # trading → calendar
+        wait_days = max(2, min(10, round(calendar_days_est)))
+        atr_note = f"ATR-14 {atr_pct:.2f}%/day → estimated {trading_days_est:.1f} trading days to fill"
     else:
-        wait_days = 21
+        # Fallback: simple distance buckets
+        if pct_away < 1.5:
+            wait_days = 2
+        elif pct_away < 3.0:
+            wait_days = 4
+        elif pct_away < 5.0:
+            wait_days = 6
+        else:
+            wait_days = 8
+        atr_note = "ATR unavailable — using distance-based estimate"
 
     # Adjust stop for limit entry
     stop_price_limit = max(limit_price * hard_stop_pct, stop_price * 0.97)
     if ma200 and math.isfinite(ma200) and ma200 < limit_price * 0.99:
         stop_price_limit = max(ma200 * 0.97, limit_price * hard_stop_pct)
 
-    rationale.append(f"Limit {pct_away:.1f}% below current price — keep order {wait_days} calendar days")
+    rationale.append(f"Limit {pct_away:.1f}% below current price — keep order {wait_days} calendar days ({atr_note})")
 
     return TradeRecommendation(
         action="Accumulate on Pullback",
@@ -782,7 +742,6 @@ def analyse_nd(nd: NormalisedData) -> AnalysisResult:
         stop_factors=stop_factors,
         blocks=blocks,
         fv=fair_value,
-        company_type=cr.company_type,
     )
 
     return AnalysisResult(

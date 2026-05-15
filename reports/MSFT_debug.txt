@@ -610,7 +610,7 @@
   Type            : Mature Tech  (confidence 83%)
   Rating             : Good Candidate
   Overall score      : 72.5 / 100
-  Investment Quality : Watch
+  Investment Quality : Buy on Limit
   Entry Decision     : Accumulate on Pullback
 
   Short-term      : 61.1 / 100
@@ -645,7 +645,7 @@
 
   Текущая цена   : $409.43
   Лимитная цена  : $397.15  (-3.0% от текущей)
-  Ждём           : до 7 календарных дней
+  Ждём           : до 2 календарных дней
   Горизонт       : long (1–5 years)  (макс. 24 мес.)
   Цель выхода    : $562.50
   Стоп-лосс      : $345.52
@@ -658,7 +658,7 @@
     •   ✗ technical score 3.9 < 5 (bearish structure or weak momentum)
     • Exit target: analyst consensus $562.50
     • Stop loss: 13% hard stop at $356.20
-    • Limit 3.0% below current price — keep order 7 calendar days
+    • Limit 3.0% below current price — keep order 2 calendar days (ATR-14 2.63%/day → estimated 1.7 trading days to fill)
 
 ──────────────────────────────────────────────────────────────────────
   STEP 10 — AI CONTEXT REVIEW PROMPT
@@ -674,7 +674,7 @@ You have NO internet access. Work ONLY with the structured data provided below.
 Your role is to complement (not override) a deterministic quantitative scoring model.
 The model has already done the math. You provide the CONTEXTUAL LAYER:
 
-1. VALIDATE — Does the quant decision (Watch) make sense given the data?
+1. VALIDATE — Does the quant decision (Buy on Limit) make sense given the data?
 2. DISTORTIONS — Are any metrics likely distorted? (one-off events, cyclical peaks,
    accounting artefacts, M&A noise, split contamination, base-effect EPS jumps,
    elevated accruals, CapEx supercycles compressing FCF)
@@ -729,7 +729,7 @@ DATA:
     "medium": 68.2,
     "long": 78.6
   },
-  "quant_decision": "Watch",
+  "quant_decision": "Buy on Limit",
   "market_data": {
     "current_price": 409.43,
     "market_cap_B": 3041.42,
@@ -865,7 +865,7 @@ DATA:
       "  ✗ technical score 3.9 < 5 (bearish structure or weak momentum)",
       "Exit target: analyst consensus $562.50",
       "Stop loss: 13% hard stop at $356.20",
-      "Limit 3.0% below current price — keep order 7 calendar days"
+      "Limit 3.0% below current price — keep order 2 calendar days (ATR-14 2.63%/day → estimated 1.7 trading days to fill)"
     ]
   },
   "key_quant_notes": [

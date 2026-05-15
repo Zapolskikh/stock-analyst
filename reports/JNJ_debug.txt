@@ -480,10 +480,10 @@
 ──────────────────────────────────────────────────────────────────────
 
   Type            : Pharma / Healthcare  (confidence 85%)
-  Rating             : Neutral / Watchlist
+  Rating             : Weak
   Overall score      : 56.4 / 100
-  Investment Quality : Watch
-  Entry Decision     : Defensive Hold
+  Investment Quality : Avoid
+  Entry Decision     : Avoid
 
   Short-term      : 60.8 / 100
   Medium-term     : 57.3 / 100
@@ -513,11 +513,10 @@
   STEP 9 — TRADE RECOMMENDATION
 ──────────────────────────────────────────────────────────────────────
 
-  🟡 DEFENSIVE HOLD — watchlist
+  🔴 AVOID — не входим в позицию
 
   Причины:
-    • Score 56/100 — approaching entry threshold
-    • Stable business; hold if already in portfolio, but not a compelling new entry at current price
+    ✗ Score 56/100 — below entry threshold (60)
 
 ──────────────────────────────────────────────────────────────────────
   STEP 10 — AI CONTEXT REVIEW PROMPT
@@ -533,7 +532,7 @@ You have NO internet access. Work ONLY with the structured data provided below.
 Your role is to complement (not override) a deterministic quantitative scoring model.
 The model has already done the math. You provide the CONTEXTUAL LAYER:
 
-1. VALIDATE — Does the quant decision (Watch) make sense given the data?
+1. VALIDATE — Does the quant decision (Avoid) make sense given the data?
 2. DISTORTIONS — Are any metrics likely distorted? (one-off events, cyclical peaks,
    accounting artefacts, M&A noise, split contamination, base-effect EPS jumps,
    elevated accruals, CapEx supercycles compressing FCF)
@@ -588,7 +587,7 @@ DATA:
     "medium": 57.3,
     "long": 57.5
   },
-  "quant_decision": "Watch",
+  "quant_decision": "Avoid",
   "market_data": {
     "current_price": 230.8,
     "market_cap_B": 555.59,
@@ -708,15 +707,14 @@ DATA:
     }
   ],
   "trade_recommendation": {
-    "action": "Defensive Hold",
+    "action": "Avoid",
     "horizon": "",
     "hold_months": null,
     "limit_price": null,
     "target_price": null,
     "stop_price": null,
     "rationale": [
-      "Score 56/100 — approaching entry threshold",
-      "Stable business; hold if already in portfolio, but not a compelling new entry at current price"
+      "Score 56/100 — below entry threshold (60)"
     ]
   },
   "key_quant_notes": [

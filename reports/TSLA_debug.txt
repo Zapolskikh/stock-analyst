@@ -666,7 +666,7 @@
   🔴 AVOID — не входим в позицию
 
   Причины:
-    ✗ Score 37/100 — weak fundamentals, no entry case
+    ✗ Score 37/100 — below entry threshold (60)
 
 ──────────────────────────────────────────────────────────────────────
   STEP 10 — AI CONTEXT REVIEW PROMPT
@@ -864,7 +864,7 @@ DATA:
     "target_price": null,
     "stop_price": null,
     "rationale": [
-      "Score 37/100 — weak fundamentals, no entry case"
+      "Score 37/100 — below entry threshold (60)"
     ]
   },
   "key_quant_notes": [

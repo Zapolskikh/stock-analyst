@@ -591,9 +591,9 @@
 ──────────────────────────────────────────────────────────────────────
 
   Type            : Mature Tech  (confidence 53%)
-  Rating             : Neutral / Watchlist
+  Rating             : Borderline
   Overall score      : 67.1 / 100
-  Investment Quality : Watch
+  Investment Quality : Buy on Limit
   Entry Decision     : Accumulate on Pullback
 
   Short-term      : 60.7 / 100
@@ -631,7 +631,7 @@
 
   Текущая цена   : $195.61
   Лимитная цена  : $170.61  (-12.8% от текущей)
-  Ждём           : до 21 календарных дней
+  Ждём           : до 6 календарных дней
   Горизонт       : long (1–5 years)  (макс. 24 мес.)
   Цель выхода    : $225.00
   Стоп-лосс      : $165.08
@@ -642,7 +642,7 @@
     • Price $195.61 is 14.7% above fair value — wait for pullback
     • Exit target: analyst consensus $225.00
     • Stop loss: 13% hard stop at $170.18
-    • Limit 12.8% below current price — keep order 21 calendar days
+    • Limit 12.8% below current price — keep order 6 calendar days (ATR-14 4.66%/day → estimated 4.1 trading days to fill)
 
 ──────────────────────────────────────────────────────────────────────
   STEP 10 — AI CONTEXT REVIEW PROMPT
@@ -658,7 +658,7 @@ You have NO internet access. Work ONLY with the structured data provided below.
 Your role is to complement (not override) a deterministic quantitative scoring model.
 The model has already done the math. You provide the CONTEXTUAL LAYER:
 
-1. VALIDATE — Does the quant decision (Watch) make sense given the data?
+1. VALIDATE — Does the quant decision (Buy on Limit) make sense given the data?
 2. DISTORTIONS — Are any metrics likely distorted? (one-off events, cyclical peaks,
    accounting artefacts, M&A noise, split contamination, base-effect EPS jumps,
    elevated accruals, CapEx supercycles compressing FCF)
@@ -713,7 +713,7 @@ DATA:
     "medium": 64.2,
     "long": 70.5
   },
-  "quant_decision": "Watch",
+  "quant_decision": "Buy on Limit",
   "market_data": {
     "current_price": 195.61,
     "market_cap_B": 562.58,
@@ -844,7 +844,7 @@ DATA:
       "Price $195.61 is 14.7% above fair value — wait for pullback",
       "Exit target: analyst consensus $225.00",
       "Stop loss: 13% hard stop at $170.18",
-      "Limit 12.8% below current price — keep order 21 calendar days"
+      "Limit 12.8% below current price — keep order 6 calendar days (ATR-14 4.66%/day → estimated 4.1 trading days to fill)"
     ]
   },
   "key_quant_notes": [

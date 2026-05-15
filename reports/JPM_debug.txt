@@ -645,10 +645,10 @@
 ──────────────────────────────────────────────────────────────────────
 
   Type            : Financial  (confidence 60%)
-  Rating             : Neutral / Watchlist
+  Rating             : Borderline
   Overall score      : 60.8 / 100
-  Investment Quality : Watch
-  Entry Decision     : Watch
+  Investment Quality : Avoid
+  Entry Decision     : Avoid
 
   Short-term      : 56.6 / 100
   Medium-term     : 58.9 / 100
@@ -676,11 +676,11 @@
   STEP 9 — TRADE RECOMMENDATION
 ──────────────────────────────────────────────────────────────────────
 
-  🟡 WATCH — watchlist
+  🔴 AVOID — не входим в позицию
 
   Причины:
-    • Current price $299.91 is 37% above entry zone $188.38
-    • Gap too large for a short-term limit order — watch until price approaches the zone
+    ✗ Price $299.91 is 37% above fair value $188.38
+    ✗ Stock materially overpriced — a limit order this far is impractical; revisit after re-rating
 
 ──────────────────────────────────────────────────────────────────────
   STEP 10 — AI CONTEXT REVIEW PROMPT
@@ -696,7 +696,7 @@ You have NO internet access. Work ONLY with the structured data provided below.
 Your role is to complement (not override) a deterministic quantitative scoring model.
 The model has already done the math. You provide the CONTEXTUAL LAYER:
 
-1. VALIDATE — Does the quant decision (Watch) make sense given the data?
+1. VALIDATE — Does the quant decision (Avoid) make sense given the data?
 2. DISTORTIONS — Are any metrics likely distorted? (one-off events, cyclical peaks,
    accounting artefacts, M&A noise, split contamination, base-effect EPS jumps,
    elevated accruals, CapEx supercycles compressing FCF)
@@ -751,7 +751,7 @@ DATA:
     "medium": 58.9,
     "long": 66.4
   },
-  "quant_decision": "Watch",
+  "quant_decision": "Avoid",
   "market_data": {
     "current_price": 299.91,
     "market_cap_B": 803.61,
@@ -847,15 +847,15 @@ DATA:
     }
   ],
   "trade_recommendation": {
-    "action": "Watch",
+    "action": "Avoid",
     "horizon": "",
     "hold_months": null,
     "limit_price": null,
     "target_price": null,
     "stop_price": null,
     "rationale": [
-      "Current price $299.91 is 37% above entry zone $188.38",
-      "Gap too large for a short-term limit order — watch until price approaches the zone"
+      "Price $299.91 is 37% above fair value $188.38",
+      "Stock materially overpriced — a limit order this far is impractical; revisit after re-rating"
     ]
   },
   "key_quant_notes": [

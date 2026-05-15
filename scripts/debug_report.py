@@ -414,17 +414,11 @@ def build_debug_report(ticker: str) -> str:
     tr = result.trade_rec
     if tr is None:
         lines.append("\n  (not computed)")
-    elif tr.action in ("Avoid",):
+    elif tr.action == "Avoid":
         lines.append("\n  🔴 AVOID — не входим в позицию")
         lines.append("\n  Причины:")
         for r in tr.rationale:
             lines.append(f"    ✗ {r}")
-    elif tr.action in ("Watch", "Defensive Hold", "Speculative Turnaround"):
-        _icons = {"Watch": "🟡", "Defensive Hold": "🟡", "Speculative Turnaround": "🟠"}
-        lines.append(f"\n  {_icons.get(tr.action,'🟡')} {tr.action.upper()} — watchlist")
-        lines.append("\n  Причины:")
-        for r in tr.rationale:
-            lines.append(f"    • {r}")
     elif tr.action == "Accumulate":
         current = fv.current_price if fv else nd.current_price
         lines.append("\n  🟢 ACCUMULATE — покупка по рынку")
@@ -441,7 +435,7 @@ def build_debug_report(ticker: str) -> str:
         lines.append("\n  Обоснование:")
         for r in tr.rationale:
             lines.append(f"    • {r}")
-    else:  # Accumulate on Pullback (or any other limit-entry action)
+    else:  # Accumulate on Pullback
         current = fv.current_price if fv else nd.current_price
         lines.append("\n  🟡 ACCUMULATE ON PULLBACK — ждём лучшей цены")
         if current:

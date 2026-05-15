@@ -623,8 +623,8 @@
   Type            : Cyclical  (confidence 75%)
   Rating             : Weak
   Overall score      : 49.7 / 100
-  Investment Quality : Hold
-  Entry Decision     : Watch
+  Investment Quality : Avoid
+  Entry Decision     : Avoid
 
   Short-term      : 57.6 / 100
   Medium-term     : 48.7 / 100
@@ -651,10 +651,10 @@
   STEP 9 — TRADE RECOMMENDATION
 ──────────────────────────────────────────────────────────────────────
 
-  🟡 WATCH — watchlist
+  🔴 AVOID — не входим в позицию
 
   Причины:
-    • Score 50/100 — below minimum threshold (60); keep on watchlist
+    ✗ Score 50/100 — below entry threshold (60)
 
 ──────────────────────────────────────────────────────────────────────
   STEP 10 — AI CONTEXT REVIEW PROMPT
@@ -670,7 +670,7 @@ You have NO internet access. Work ONLY with the structured data provided below.
 Your role is to complement (not override) a deterministic quantitative scoring model.
 The model has already done the math. You provide the CONTEXTUAL LAYER:
 
-1. VALIDATE — Does the quant decision (Hold) make sense given the data?
+1. VALIDATE — Does the quant decision (Avoid) make sense given the data?
 2. DISTORTIONS — Are any metrics likely distorted? (one-off events, cyclical peaks,
    accounting artefacts, M&A noise, split contamination, base-effect EPS jumps,
    elevated accruals, CapEx supercycles compressing FCF)
@@ -725,7 +725,7 @@ DATA:
     "medium": 48.7,
     "long": 49.6
   },
-  "quant_decision": "Hold",
+  "quant_decision": "Avoid",
   "market_data": {
     "current_price": 152.78,
     "market_cap_B": 633.26,
@@ -830,14 +830,14 @@ DATA:
   },
   "stop_factors": [],
   "trade_recommendation": {
-    "action": "Watch",
+    "action": "Avoid",
     "horizon": "",
     "hold_months": null,
     "limit_price": null,
     "target_price": null,
     "stop_price": null,
     "rationale": [
-      "Score 50/100 — below minimum threshold (60); keep on watchlist"
+      "Score 50/100 — below entry threshold (60)"
     ]
   },
   "key_quant_notes": [
