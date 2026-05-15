@@ -105,6 +105,24 @@ class NormalisedData:
     analyst_target_mean: Optional[float] = None      # mean analyst price target
     analyst_count: Optional[int] = None              # number of analyst opinions
 
+    # --- Market sentiment (from yfinance) ----------------------------------
+    short_ratio: Optional[float] = None              # days to cover (short interest / avg volume)
+    short_pct_float: Optional[float] = None          # short interest as % of float (0.0–1.0)
+    institutional_ownership: Optional[float] = None  # % held by institutions (0.0–1.0)
+    insider_ownership: Optional[float] = None        # % held by insiders (0.0–1.0)
+    recommendation_key: Optional[str] = None         # "strong_buy" | "buy" | "hold" | "sell" | "strong_sell"
+    recommendation_mean: Optional[float] = None      # 1.0 (Strong Buy) → 5.0 (Strong Sell)
+
+    # --- Split info (from yfinance) ----------------------------------------
+    last_split_factor: Optional[str] = None          # e.g. "10:1"
+    last_split_date: Optional[str] = None            # ISO date string, e.g. "2024-06-10"
+    split_adjusted: bool = False                     # True if shares/EPS series were adjusted
+
+    # --- Historical valuation (computed from ohlcv + annual EPS) ----------
+    pe_hist_avg: Optional[float] = None              # average P/E over available ohlcv history
+    pe_hist_high: Optional[float] = None             # peak P/E over available ohlcv history
+    pe_hist_low: Optional[float] = None              # trough P/E over available ohlcv history
+
     # --- Price history (last ≤252 trading days, newest last) ---------------
     close_prices: list[float] = field(default_factory=list)
     spy_close_prices: list[float] = field(default_factory=list)  # SPY closes for relative strength
@@ -126,10 +144,33 @@ class NormalisedData:
     ttm_fcf_margin:        Optional[float] = None   # %
     ttm_as_of:             Optional[str]   = None   # ISO end-date of latest Q used
 
+    # --- Cyclical / mid-cycle normalization --------------------------------
+    # For cyclical companies (energy, autos, materials) current-year earnings
+    # can be 2-5× higher or lower than mid-cycle norm due to commodity prices.
+    # normalized_eps = median of last 7yr EPS (smooths peaks and troughs).
+    # normalized_pe  = current_price / normalized_eps.
+    normalized_eps: Optional[float] = None
+    normalized_pe:  Optional[float] = None
+
+    # --- Cashflow anomaly flag ---------------------------------------------
+    # Set when TTM OCF deviates significantly from 5yr historical average.
+    # Used by stop factors and AI payload to flag one-off distortions.
+    cashflow_anomaly: bool = False
+    cashflow_anomaly_detail: Optional[str] = None
+
     # --- Data-quality summary ----------------------------------------------
     years_of_history: int = 0
     data_quality: str = "poor"   # "good" | "partial" | "poor"
     missing_metrics: list[str] = field(default_factory=list)
+
+    # --- Granular data-quality dimensions ----------------------------------
+    # Each dimension is independently flagged so the AI and engine can act on
+    # specific weaknesses rather than a single coarse "dq" label.
+    dq_accounting: str = "reliable"    # "reliable" | "distorted" | "limited"
+    dq_cashflow:   str = "reliable"    # "reliable" | "anomaly"   | "sector_n_a"
+    dq_valuation:  str = "reliable"    # "reliable" | "distorted" | "limited"
+    dq_historical: str = "full"        # "full" | "partial" | "minimal"
+    dq_sector_fit: str = "native"      # "native" | "adapted" | "unsupported"
 
 
 # ---------------------------------------------------------------------------
@@ -348,6 +389,7 @@ def normalise(
     info: dict,
     ticker: str = "",
     spy_prices: list[float] | None = None,
+    splits_df: pd.DataFrame | None = None,
 ) -> NormalisedData:
     """
     Build a NormalisedData object from raw fetched inputs.
@@ -489,7 +531,196 @@ def normalise(
     analyst_count = _safe_float(info, "numberOfAnalystOpinions")
     nd.analyst_count = int(analyst_count) if analyst_count is not None else None
 
-    # Fallback price from OHLCV if info didn't have it
+    # Market sentiment
+    nd.short_ratio             = _safe_float(info, "shortRatio")
+    nd.short_pct_float         = _safe_float(info, "shortPercentOfFloat")
+    nd.institutional_ownership = _safe_float(info, "heldPercentInstitutions")
+    nd.insider_ownership       = _safe_float(info, "heldPercentInsiders")
+    nd.recommendation_key      = info.get("recommendationKey") or None
+    nd.recommendation_mean     = _safe_float(info, "recommendationMean")
+
+    # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Split normalization: full backward-adjustment pipeline
+    # ------------------------------------------------------------------
+    # SEC EDGAR stores raw (non-split-adjusted) values. To make the entire
+    # historical series comparable in today's share terms we must apply ALL
+    # splits in reverse-chronological order.
+    #
+    # Algorithm:
+    #   1. Collect all known splits sorted newest → oldest.
+    #   2. For each split at date D with ratio R:
+    #      - Compute cumulative factor for years BEFORE D.
+    #      - Divide shares by R (pre-split shares were fewer → scale down to
+    #        today's per-share equivalent).
+    #      - Multiply EPS by R (pre-split EPS was higher → scale up to today's
+    #        per-share equivalent after dilution).
+    #   3. Re-derive dependent series (dilution %, EPS growth) from adjusted data.
+    #
+    # Sources of split data (in priority order):
+    #   A. splits_df — full yfinance history saved by fetch_offline_data.py
+    #   B. info["lastSplitFactor"] + info["lastSplitDate"] — legacy fallback
+    #      (only the most recent split, kept for backwards compatibility when
+    #       yf_splits.parquet has not been fetched yet).
+
+    # Build splits list: list of (split_year: int, ratio: float), newest first
+    _splits: list[tuple[int, float]] = []
+
+    if splits_df is not None and not splits_df.empty and "ratio" in splits_df.columns:
+        # Primary source: full history from yf_splits.parquet
+        for _, _row in splits_df.sort_values("date", ascending=False).iterrows():
+            try:
+                _dt  = pd.Timestamp(_row["date"])
+                _rat = float(_row["ratio"])
+                if _rat > 1.0:   # ignore reverse-splits for now (< 1.0)
+                    _splits.append((_dt.year, _rat))
+            except Exception:
+                continue
+        # Store metadata from the most recent split
+        if _splits:
+            _most_recent_dt = splits_df.sort_values("date").iloc[-1]
+            nd.last_split_factor = f"{int(_most_recent_dt['ratio'])}:1"
+            nd.last_split_date   = pd.Timestamp(_most_recent_dt["date"]).strftime("%Y-%m-%d")
+    else:
+        # Legacy fallback: single split from info.json
+        _raw_sf = info.get("lastSplitFactor")
+        _raw_sd = info.get("lastSplitDate")
+        if _raw_sf and _raw_sd:
+            try:
+                _parts       = str(_raw_sf).split(":")
+                _split_ratio = float(_parts[0]) / float(_parts[1])
+                _sdt         = pd.Timestamp(_raw_sd, unit="s")
+                if _split_ratio > 1.0:
+                    _splits.append((_sdt.year, _split_ratio))
+                nd.last_split_factor = _raw_sf
+                nd.last_split_date   = _sdt.strftime("%Y-%m-%d")
+            except Exception:
+                pass
+
+    if _splits:
+        # Apply each split cumulatively from newest to oldest.
+        # Goal: express ALL historical values in post-all-splits per-share terms.
+        #
+        # For SHARES OUTSTANDING (total count):
+        #   A split multiplies the share count.  Pre-split years had FEWER shares.
+        #   To express them in post-split terms: multiply by the split factor.
+        #   Example: 612M shares (pre-4:1) × 4 × 10 = 24,480M post-all-splits.
+        #
+        # For EPS (earnings per share):
+        #   A split halves EPS (same earnings, more shares).  Pre-split EPS was HIGHER.
+        #   To express in post-split per-share terms: divide by the split factor.
+        #   Example: $1.13/share (pre-4:1) / 4 / 10 = $0.028 post-all-splits per-share.
+        #
+        # EDGAR RETROACTIVE ADJUSTMENT PROBLEM:
+        #   SEC EDGAR sometimes retroactively updates prior-year data to reflect a split
+        #   (especially in "comparative" columns of subsequent 10-K filings).
+        #   This means the split JUMP may appear at year Y-1 or Y-2 instead of year Y.
+        #   We detect the actual jump position by scanning ±3 years around the split date
+        #   and only adjust years BEFORE the detected jump (not years already adjusted).
+
+        def _detect_actual_jump_year(
+            shares: list[float], yrs: list[int], nominal_split_yr: int, ratio: float
+        ) -> int:
+            """
+            Find the year in the data where the split jump actually appears.
+            Returns the nominal split year as fallback if jump is not detected.
+            """
+            for offset in range(-3, 4):
+                yr_candidate = nominal_split_yr + offset
+                if yr_candidate not in yrs:
+                    continue
+                idx = yrs.index(yr_candidate)
+                if idx == 0:
+                    continue
+                prev_v = shares[idx - 1]
+                curr_v = shares[idx]
+                if not (_valid(prev_v) and _valid(curr_v) and prev_v > 0):
+                    continue
+                actual_ratio = curr_v / prev_v
+                # Match if within 35% of expected ratio
+                if abs(actual_ratio - ratio) / ratio <= 0.35:
+                    return yr_candidate
+            return nominal_split_yr   # fallback: no clear jump found
+
+        _adjusted = False
+        # Work on a mutable copy of years list for index lookups
+        _yr_list = list(nd.years)
+
+        for _sp_year, _sp_factor in _splits:
+            _actual_jump_yr = _detect_actual_jump_year(
+                nd.shares_outstanding_annual, _yr_list, _sp_year, _sp_factor
+            )
+            # Adjust only years BEFORE the detected jump year (those are genuinely pre-split)
+            for _i, _yr in enumerate(_yr_list):
+                if _yr < _actual_jump_yr:
+                    if _valid(nd.shares_outstanding_annual[_i]):
+                        nd.shares_outstanding_annual[_i] *= _sp_factor
+                        _adjusted = True
+                    if _valid(nd.eps_diluted_annual[_i]):
+                        nd.eps_diluted_annual[_i] /= _sp_factor
+
+        if _adjusted:
+            nd.shares_dilution_annual = _pct_change(nd.shares_outstanding_annual)
+            nd.eps_growth_annual      = _pct_change(nd.eps_diluted_annual)
+            nd.split_adjusted         = True
+
+    # ------------------------------------------------------------------
+    # Historical P/E from ohlcv + annual EPS
+    # ------------------------------------------------------------------
+    # For each fiscal year where we have both EPS (10-K) and a price close
+    # near the filing date, compute trailing P/E.  We look up the stock price
+    # within ±45 days of the 10-K end date using the ohlcv DataFrame.
+    # Requires split-adjusted EPS for meaningful comparison.
+    if price_df is not None and not price_df.empty and nd.eps_diluted_annual:
+        _hist_pe_vals: list[float] = []
+        # Need the raw annual EPS dates to look up the right price
+        _eps_df = fundamentals.get("eps_diluted")
+        if _eps_df is not None and not _eps_df.empty:
+            _eps_ann = _eps_df[_eps_df["form"] == "10-K"].copy()
+            if "start" in _eps_ann.columns:
+                _eps_ann["_days"] = (_eps_ann["end"] - _eps_ann["start"]).dt.days
+                _all_instant = (_eps_ann["_days"] == 0).all()
+                if not _all_instant:
+                    _eps_ann = _eps_ann[(_eps_ann["_days"] >= 300) & (_eps_ann["_days"] <= 400)]
+            if "filed" in _eps_ann.columns:
+                _eps_ann = _eps_ann.sort_values("filed", ascending=False).drop_duplicates("end", keep="first")
+            _eps_ann = _eps_ann.sort_values("end")
+
+            # Build a lookup: fiscal year → price at filing date
+            _price_idx = pd.DatetimeIndex(price_df.index)
+            for _, _row in _eps_ann.iterrows():
+                _fy_end  = pd.Timestamp(_row["end"])
+                _fy_eps  = float(_row["val"])
+                if not _valid(_fy_eps) or _fy_eps <= 0:
+                    continue
+                # Apply cumulative split adjustment to raw EPS for historical P/E.
+                # For each split that happened AFTER this fiscal year end,
+                # the EPS was in pre-split (higher) per-share terms → divide to get
+                # post-split equivalent (lower EPS per more shares).
+                if nd.split_adjusted and _splits:
+                    for _sp_yr, _sp_f in _splits:
+                        if _fy_end.year < _sp_yr:
+                            _fy_eps /= _sp_f
+
+                # Find closest available price within ±45 days of fiscal year end
+                _lo = _fy_end - pd.Timedelta(days=45)
+                _hi = _fy_end + pd.Timedelta(days=45)
+                _mask = (_price_idx >= _lo) & (_price_idx <= _hi)
+                _window = price_df.loc[_mask]
+                if _window.empty:
+                    continue
+                # Use the price closest to the fiscal year end date
+                _closest_idx = ((_price_idx[_mask] - _fy_end).asi8.astype("int64").__abs__().argmin())
+                _fy_price = float(_window["Close"].iloc[_closest_idx])
+                if _fy_price > 0:
+                    _pe = _fy_price / _fy_eps
+                    if 3.0 < _pe < 300.0:   # sanity range
+                        _hist_pe_vals.append(_pe)
+
+        if _hist_pe_vals:
+            nd.pe_hist_avg  = round(sum(_hist_pe_vals) / len(_hist_pe_vals), 1)
+            nd.pe_hist_high = round(max(_hist_pe_vals), 1)
+            nd.pe_hist_low  = round(min(_hist_pe_vals), 1)
     if nd.current_price is None and price_df is not None and not price_df.empty:
         nd.current_price = float(price_df["Close"].iloc[-1])
 
@@ -552,5 +783,73 @@ def normalise(
     # Record the end-date of the latest quarterly filing used for TTM
     if rev_dates:
         nd.ttm_as_of = rev_dates[-1]
+
+    # ------------------------------------------------------------------
+    # 9. Mid-cycle normalized EPS + PE (for cyclical sectors)
+    # ------------------------------------------------------------------
+    # Uses median of last 7 years of EPS to smooth commodity / economic cycles.
+    # Median is more robust than mean: it ignores both boom-year peaks (XOM 2022)
+    # and recession troughs (XOM 2020 -$5.25). At least 3 years required.
+    _eps_hist = [v for v in nd.eps_diluted_annual if math.isfinite(v) and v != 0]
+    if len(_eps_hist) >= 3:
+        _eps7 = sorted(_eps_hist[-7:])
+        nd.normalized_eps = _eps7[len(_eps7) // 2]    # median
+        if nd.current_price and math.isfinite(nd.current_price) and nd.normalized_eps > 0:
+            nd.normalized_pe = round(nd.current_price / nd.normalized_eps, 1)
+
+    # ------------------------------------------------------------------
+    # 10. Cashflow anomaly detection
+    # ------------------------------------------------------------------
+    # Flags when TTM OCF deviates sharply from 5yr historical average.
+    # This catches one-off distortions that would mislead DCF and quality scoring:
+    #   KO TTM OCF = −$2.5B vs 5yr avg $9.8B  →  anomaly (working capital spike)
+    #   XOM TTM OCF = $52B vs 5yr avg $47B     →  no anomaly
+    # Threshold: |TTM - hist_mean| > 2 × hist_std AND |deviation_pct| > 40%
+    if nd.ttm_operating_cf is not None and math.isfinite(nd.ttm_operating_cf):
+        _ocf_hist = [v for v in nd.operating_cf_annual[-5:] if math.isfinite(v)]
+        if len(_ocf_hist) >= 3:
+            import statistics as _stats
+            _ocf_mean = _stats.mean(_ocf_hist)
+            _ocf_std  = _stats.stdev(_ocf_hist) if len(_ocf_hist) >= 2 else 0.0
+            _ocf_dev  = nd.ttm_operating_cf - _ocf_mean
+            _dev_pct  = abs(_ocf_dev / _ocf_mean) * 100 if _ocf_mean != 0 else 0.0
+            if (_ocf_std > 0 and abs(_ocf_dev) > 2 * _ocf_std and _dev_pct > 40):
+                nd.cashflow_anomaly = True
+                direction = "surge" if _ocf_dev > 0 else "collapse"
+                nd.cashflow_anomaly_detail = (
+                    f"TTM OCF ${nd.ttm_operating_cf/1e9:.1f}B vs 5yr avg "
+                    f"${_ocf_mean/1e9:.1f}B (±${_ocf_std/1e9:.1f}B) — "
+                    f"{_dev_pct:.0f}% {direction}; may distort DCF and quality metrics"
+                )
+
+    # ── Section 11: Granular data quality ────────────────────────────────
+    # dq_accounting / dq_valuation: PE distortion check
+    _pe_t = nd.pe_trailing
+    _pe_f = nd.pe_forward
+    if (
+        _pe_t is not None and _pe_f is not None
+        and math.isfinite(_pe_t) and math.isfinite(_pe_f)
+        and _pe_f > 0 and _pe_t > 3 * _pe_f and _pe_f < 25
+    ):
+        nd.dq_accounting = "distorted"
+        nd.dq_valuation  = "distorted"
+
+    # dq_cashflow: anomaly flag (set in section 10 above)
+    if nd.cashflow_anomaly:
+        nd.dq_cashflow = "anomaly"
+
+    # dq_historical: based on years of history
+    if nd.years_of_history >= 7:
+        nd.dq_historical = "full"
+    elif nd.years_of_history >= 3:
+        nd.dq_historical = "partial"
+    else:
+        nd.dq_historical = "minimal"
+
+    # dq_sector_fit: defaulted to "native" here; overridden in engine.py
+    # after company_type classification:
+    #   FINANCIAL       → "unsupported"  (GAAP metrics ill-suited)
+    #   CYCLICAL/PHARMA → "adapted"      (metrics applied with modifications)
+    #   others          → "native"
 
     return nd

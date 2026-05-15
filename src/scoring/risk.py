@@ -141,8 +141,11 @@ def score_risk(
                     notes.append(f"earnings instability (score={instability:.2f})")
 
     # --- FCF consistency (fraction of years with positive FCF) -------------
+    # NOT applicable for Financial sector: banks' OCF is structurally negative
+    # (loan originations classified as operating outflows in GAAP banking accounting).
+    # A negative OCF for a bank is NOT a sign of poor FCF generation — it is normal.
     fcf_valid = [v for v in nd.fcf_annual if math.isfinite(v)]
-    if fcf_valid:
+    if fcf_valid and company_type not in _DE_EXEMPT_TYPES:
         attempted += 1
         pos_fraction = sum(1 for v in fcf_valid if v > 0) / len(fcf_valid)
         # 100% → 10, 75% → 7, 50% → 4, 0% → 0
@@ -168,13 +171,26 @@ def score_risk(
                     notes.append(f"highly volatile revenue growth (CV={cv_rg:.1f})")
 
     # --- Dilution risk (shares outstanding growth) -------------------------
-    # Avg annual dilution > 0% bad; > 5% very bad (убыточные компании размывают)
+    # Avg annual dilution > 0% bad; > 5% very bad (убыточные компании размывают).
+    #
+    # Stock splits produce YoY jumps of +100%–+700% that are NOT economic dilution.
+    # We exclude any year where |YoY change| > 100% before computing avg.
+    # If all years are split-contaminated, fall back to total-period CAGR of
+    # shares outstanding (first→last valid), which is split-adjusted by definition.
     dil_valid = [v for v in nd.shares_dilution_annual[1:] if math.isfinite(v)]
     if len(dil_valid) >= 2:
         attempted += 1
-        avg_dil = sum(dil_valid) / len(dil_valid)
-        # Only penalise dilution (positive growth = more shares = worse for investors)
-        # Buybacks (negative growth) scored well
+        clean_dil = [v for v in dil_valid if abs(v) <= 100.0]
+        if len(clean_dil) >= 2:
+            avg_dil = sum(clean_dil) / len(clean_dil)
+        else:
+            # All years contaminated by splits — fall back to total CAGR
+            shr = [v for v in nd.shares_outstanding_annual if math.isfinite(v) and v > 0]
+            if len(shr) >= 2:
+                n = len(shr) - 1
+                avg_dil = ((shr[-1] / shr[0]) ** (1 / n) - 1) * 100
+            else:
+                avg_dil = 0.0
         pts = [(-5.0, 10), (-1.0, 9), (0.0, 8), (2.0, 6), (5.0, 3), (10.0, 0)]
         s = _interp(pts, avg_dil)
         if math.isfinite(s):
@@ -183,6 +199,25 @@ def score_risk(
                 notes.append(f"significant share dilution ({avg_dil:.1f}%/yr avg)")
             elif avg_dil < -1.0:
                 notes.append(f"share buybacks ({avg_dil:.1f}%/yr avg — positive)")
+
+    # --- Short interest (days to cover) ------------------------------------
+    # Short ratio = short interest / avg daily volume (days to cover).
+    # High short ratio signals elevated bearish conviction from sophisticated
+    # traders — this is a meaningful risk signal for longs.
+    # > 5 days: notable short pressure.  > 10 days: heavy short position.
+    # We treat it as a risk metric: higher short ratio → lower risk score.
+    _sr = nd.short_ratio
+    if _sr is not None and math.isfinite(_sr) and _sr >= 0:
+        attempted += 1
+        # 0–2 days: minimal (10), 5 days: moderate (6), 10 days: high (3), 15+ days: very high (0)
+        pts = [(0.0, 10), (2.0, 8), (5.0, 6), (10.0, 3), (15.0, 0)]
+        s = _interp(pts, _sr)
+        if math.isfinite(s):
+            breakdown["short_ratio"] = s
+            if _sr > 10.0:
+                notes.append(f"short ratio {_sr:.1f} days — heavy short position")
+            elif _sr > 5.0:
+                notes.append(f"short ratio {_sr:.1f} days — notable short pressure")
 
     if not breakdown:
         notes.append("insufficient data for risk scoring")

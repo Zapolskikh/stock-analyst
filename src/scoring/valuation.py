@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import math
 
+from src.classifier import CompanyType
 from src.data.normalizer import NormalisedData
 from src.models.benchmarks import Benchmark
 from src.scoring.base import BlockScore, avg_scores
@@ -34,7 +35,11 @@ def _recent_mean(values: list[float], n: int = 3) -> float:
     return sum(tail) / len(tail) if tail else float("nan")
 
 
-def score_valuation(nd: NormalisedData, bm: Benchmark) -> BlockScore:
+def score_valuation(
+    nd: NormalisedData,
+    bm: Benchmark,
+    company_type: CompanyType = CompanyType.OTHER,
+) -> BlockScore:
     """
     Compute Valuation score for *nd* using thresholds from *bm*.
     All scales (P/S, FCF yield, PEG) are benchmark-specific.
@@ -42,15 +47,47 @@ def score_valuation(nd: NormalisedData, bm: Benchmark) -> BlockScore:
     Coverage penalty: pe_trailing, pe_forward, ps_ratio, fcf_yield are always
     expected for a listed company. PEG and EV/EBITDA are supplementary — counted
     only when their prerequisites (pe_forward, ebitda) are available.
+
+    For Financial companies (banks): FCF yield and P/S are not applicable —
+    banks do not report revenue / FCF in a comparable way. P/TBV (price-to-book)
+    is used as the primary valuation anchor instead.
     """
+    is_financial = (company_type == CompanyType.FINANCIAL)
+    is_cyclical  = (company_type == CompanyType.CYCLICAL)
     breakdown: dict[str, float] = {}
     notes: list[str] = []
     attempted = 0
 
     # --- Trailing P/E (always expected for a profitable company) -----------
+    # Accounting distortion guard: when pe_trailing > 3× pe_forward AND
+    # pe_forward < 25, the trailing figure is almost certainly distorted by
+    # one-off GAAP charges (acquisition amortisation, impairments, etc.).
+    # In such cases we skip pe_trailing to avoid penalising the valuation score.
+    # The stop factor "Accounting Distortion (P/E)" is added by the engine.
+    #
+    # For CYCLICAL companies pe_trailing is replaced by normalized_pe (median
+    # 7yr EPS basis) which smooths commodity and economic cycle swings.
+    # Example: XOM pe_trailing = 14x (depressed 2024 earnings) but normalized
+    # PE = 10x (mid-cycle) — the normalized figure is the meaningful anchor.
     attempted += 1
     pe_t = nd.pe_trailing
-    if pe_t is not None and math.isfinite(pe_t) and pe_t > 0:
+    pe_f_for_guard = nd.pe_forward
+    _pe_t_distorted = (
+        pe_t is not None and math.isfinite(pe_t) and pe_t > 0
+        and pe_f_for_guard is not None and math.isfinite(pe_f_for_guard) and pe_f_for_guard > 0
+        and pe_t > 3.0 * pe_f_for_guard and pe_f_for_guard < 25
+    )
+    if is_cyclical and nd.normalized_pe is not None and math.isfinite(nd.normalized_pe) and nd.normalized_pe > 0:
+        # Use normalized (mid-cycle) PE for cyclicals
+        s = bm.score_metric("normalized_pe", nd.normalized_pe)
+        if math.isfinite(s):
+            breakdown["normalized_pe"] = s
+            notes.append(
+                f"Normalized P/E {nd.normalized_pe:.1f}x (mid-cycle 7yr median EPS) "
+                f"— trailing P/E {pe_t:.0f}x excluded for cyclical"
+                if pe_t is not None else f"Normalized P/E {nd.normalized_pe:.1f}x (mid-cycle)"
+            )
+    elif not _pe_t_distorted and pe_t is not None and math.isfinite(pe_t) and pe_t > 0:
         s = bm.score_metric("pe_trailing", pe_t)
         if math.isfinite(s):
             breakdown["pe_trailing"] = s
@@ -58,6 +95,11 @@ def score_valuation(nd: NormalisedData, bm: Benchmark) -> BlockScore:
                 notes.append(f"P/E {pe_t:.0f} — very expensive")
             elif pe_t < 12:
                 notes.append(f"P/E {pe_t:.0f} — cheap")
+    elif _pe_t_distorted:
+        notes.append(
+            f"Trailing P/E {pe_t:.0f} excluded — likely accounting distortion "
+            f"(forward P/E {pe_f_for_guard:.1f} is the reliable anchor)"
+        )
 
     # --- Forward P/E (always expected) ------------------------------------
     attempted += 1
@@ -68,36 +110,61 @@ def score_valuation(nd: NormalisedData, bm: Benchmark) -> BlockScore:
             breakdown["pe_forward"] = s
 
     # --- P/S ratio (market_cap / TTM revenue preferred, else last annual) ---
-    attempted += 1
-    # TTM revenue is 3–12 months fresher than the last annual 10-K figure
-    last_rev = nd.ttm_revenue if (nd.ttm_revenue is not None and math.isfinite(nd.ttm_revenue)) \
-               else _last_valid(nd.revenue_annual)
-    if (nd.market_cap and math.isfinite(nd.market_cap)
-            and math.isfinite(last_rev) and last_rev > 0):
-        ps = nd.market_cap / last_rev
-        s = bm.score_metric("ps_ratio", ps)
-        if math.isfinite(s):
-            breakdown["ps_ratio"] = s
-            if ps > 10:
-                notes.append(f"P/S {ps:.1f} — elevated")
-            elif ps < 1.5:
-                notes.append(f"P/S {ps:.1f} — attractive")
+    # NOT applicable for Financial sector: bank "revenue" (net interest income)
+    # is not comparable to corporate revenue. P/TBV is used instead (see below).
+    if not is_financial:
+        attempted += 1
+        # TTM revenue is 3–12 months fresher than the last annual 10-K figure
+        last_rev = nd.ttm_revenue if (nd.ttm_revenue is not None and math.isfinite(nd.ttm_revenue)) \
+                   else _last_valid(nd.revenue_annual)
+        if (nd.market_cap and math.isfinite(nd.market_cap)
+                and math.isfinite(last_rev) and last_rev > 0):
+            ps = nd.market_cap / last_rev
+            s = bm.score_metric("ps_ratio", ps)
+            if math.isfinite(s):
+                breakdown["ps_ratio"] = s
+                if ps > 10:
+                    notes.append(f"P/S {ps:.1f} — elevated")
+                elif ps < 1.5:
+                    notes.append(f"P/S {ps:.1f} — attractive")
 
-    # --- FCF yield (FCF / market_cap × 100) — always expected -------------
+    # --- P/TBV — Price to Tangible Book Value (primary metric for banks) ---
+    # For Financial companies, P/TBV = market_cap / equity is the standard
+    # institutional valuation anchor. Below 1.0 = trading at book discount.
+    # For non-financial companies P/TBV has limited meaning and is skipped.
+    if is_financial:
+        attempted += 1
+        last_eq = next((v for v in reversed(nd.equity_annual) if math.isfinite(v) and v > 0), None)
+        if nd.market_cap and math.isfinite(nd.market_cap) and last_eq:
+            ptbv = nd.market_cap / last_eq
+            s = bm.score_metric("ptbv", ptbv)
+            if math.isfinite(s):
+                breakdown["ptbv"] = s
+                if ptbv < 1.0:
+                    notes.append(f"P/TBV {ptbv:.2f} — below book value (cheap for a bank)")
+                elif ptbv > 3.0:
+                    notes.append(f"P/TBV {ptbv:.2f} — premium to book (expensive)")
+                else:
+                    notes.append(f"P/TBV {ptbv:.2f}")
+
+    # --- FCF yield (FCF / market_cap × 100) — always expected (except banks) --
     # TTM FCF preferred (from 10-Q), else last annual FCF
-    attempted += 1
-    last_fcf = nd.ttm_fcf if (nd.ttm_fcf is not None and math.isfinite(nd.ttm_fcf)) \
-               else _last_valid(nd.fcf_annual)
-    if (nd.market_cap and math.isfinite(nd.market_cap) and nd.market_cap > 0
-            and math.isfinite(last_fcf)):
-        fcf_yield = last_fcf / nd.market_cap * 100.0
-        s = bm.score_metric("fcf_yield", fcf_yield)
-        if math.isfinite(s):
-            breakdown["fcf_yield"] = s
-            if fcf_yield > 5:
-                notes.append(f"FCF yield {fcf_yield:.1f}% — attractive")
-            elif fcf_yield < 0:
-                notes.append("negative FCF yield")
+    # NOT applicable for Financial sector: banks' OCF/FCF is distorted by loan
+    # origination cash flows and is not a meaningful valuation input.
+    if not is_financial:
+        attempted += 1
+        last_fcf = nd.ttm_fcf if (nd.ttm_fcf is not None and math.isfinite(nd.ttm_fcf)) \
+                   else _last_valid(nd.fcf_annual)
+        if (nd.market_cap and math.isfinite(nd.market_cap) and nd.market_cap > 0
+                and math.isfinite(last_fcf)):
+            fcf_yield = last_fcf / nd.market_cap * 100.0
+            s = bm.score_metric("fcf_yield", fcf_yield)
+            if math.isfinite(s):
+                breakdown["fcf_yield"] = s
+                if fcf_yield > 5:
+                    notes.append(f"FCF yield {fcf_yield:.1f}% — attractive")
+                elif fcf_yield < 0:
+                    notes.append("negative FCF yield")
 
     # --- PEG ratio (pe_forward / eps_growth_avg) ---------------------------
     # Supplementary — only counted when pe_forward and positive growth are present.
@@ -106,14 +173,29 @@ def score_valuation(nd: NormalisedData, bm: Benchmark) -> BlockScore:
         eps_g = _recent_mean(nd.eps_growth_annual)
         if math.isfinite(eps_g) and eps_g > 0:
             attempted += 1
-            peg = pe_f / eps_g
+            # Cap EPS growth used in PEG denominator at 50%.
+            # Without this cap, hypergrowth stocks (NVDA: EPS growth 400%+) produce
+            # PEG near 0, which reads as "extremely cheap" — but it's a mathematical
+            # artefact of the hyper-base, not a genuine valuation signal.
+            # Cap of 50% still rewards high-growth companies while preventing
+            # near-zero PEG from distorting the valuation score.
+            eps_g_capped = min(eps_g, 50.0)
+            peg = pe_f / eps_g_capped
             s = bm.score_metric("peg_ratio", peg)
             if math.isfinite(s):
                 breakdown["peg_ratio"] = s
+                growth_note = f"{eps_g:.0f}% (capped 50%)" if eps_g > 50.0 else f"{eps_g:.0f}%"
                 if peg < 1.0:
-                    notes.append(f"PEG {peg:.2f} — attractive (growth underpriced)")
+                    notes.append(f"PEG {peg:.2f} — attractive (growth underpriced, g={growth_note})")
                 elif peg > 3.0:
-                    notes.append(f"PEG {peg:.2f} — expensive relative to growth")
+                    notes.append(f"PEG {peg:.2f} — expensive relative to growth (g={growth_note})")
+                # Reliability warning: explosive EPS growth (>80%) is often
+                # cyclical or base-effect driven — PEG signal is unreliable.
+                if eps_g > 80.0:
+                    notes.append(
+                        f"PEG LOW RELIABILITY: EPS growth {eps_g:.0f}% suggests cyclical/base-effect "
+                        "— PEG may overstate attractiveness"
+                    )
 
     # --- EV / EBITDA -------------------------------------------------------
     # EV = market_cap + last_long_term_debt − last_cash

@@ -1,0 +1,907 @@
+
+══════════════════════════════════════════════════════════════════════
+  DEBUG ANALYSIS REPORT — GS
+══════════════════════════════════════════════════════════════════════
+  Generated: May 15, 2026
+
+──────────────────────────────────────────────────────────────────────
+  STEP 1 — NORMALISED DATA
+──────────────────────────────────────────────────────────────────────
+
+  Ticker          : GS
+  Sector          : Financial Services
+  Industry        : Capital Markets
+  Years of history: 20
+  Data quality    : partial
+  Missing metrics : revenue, gross_profit, cost_of_revenue, operating_income, rd_expense
+  TTM as-of       : n/a
+
+  ── Market / Price ──
+  Current price   : 968.96$
+  Market cap      : $285.85B
+  P/E trailing    : 17.7
+  P/E forward     : 14.8
+  Beta            : 1.27
+  Dividend yield  : 1.86%
+  Avg daily vol   : 2,179,361 shares
+
+  ── Analyst Consensus ──
+  Forward EPS     : 65.39$
+  Target (median) : 961.00$
+  Target (mean)   : 947.60$
+  # analysts      : 20
+  Recommendation  : Hold  (mean=2.54)
+
+  ── Market Sentiment ──
+  Short ratio     : 3.5 days  (days to cover)
+  Short % float   : 2.4%
+  Institutional   : 75.4%  owned by institutions
+  Insider owned   : 0.5%  owned by insiders
+
+  ── Historical Valuation (P/E from ohlcv) ──
+  P/E hist avg    : 12.6x
+  P/E hist high   : 17.0x
+  P/E hist low    : 5.8x
+  vs current P/E  : 17.7x  (+40% vs 5yr avg)
+
+  ── Mid-Cycle Valuation (normalized, 7yr EPS median) ──
+  Normalized EPS  : 30.06$
+  Normalized P/E  : 32.2x  (vs trailing 17.7x)
+
+  ⚠ CASHFLOW ANOMALY: TTM OCF $-87.7B vs 5yr avg $-11.2B (±$21.6B) — 684% collapse; may distort DCF and quality metrics
+
+  ── Data Quality Breakdown ──
+  Accounting            : ✓ reliable
+  Cashflow              : — sector_n_a
+  Valuation             : ✓ reliable
+  Historical data       : ✓ full
+  Sector fit            : ✗ unsupported
+
+  ── TTM (Trailing Twelve Months) ──
+  Revenue         : n/a
+  Gross profit    : n/a  →  margin n/a
+  Operating inc.  : n/a  →  margin n/a
+  Net income      : $18.19B  →  margin n/a
+  Operating CF    : $-87.73B
+  CapEx           : $2.16B
+  FCF             : $-89.89B  →  margin n/a
+  EPS diluted     : 54.83$
+
+  ── Annual Revenue ($B) ──
+  2007:  n/a
+  2008:  n/a
+  2008:  n/a
+  2009:  n/a
+  2010:  n/a
+  2011:  n/a
+  2012:  n/a
+  2013:  n/a
+  2014:  n/a
+  2015:  n/a
+  2016:  n/a
+  2017:  n/a
+  2018:  n/a
+  2019:  n/a
+  2020:  n/a
+  2021:  n/a
+  2022:  n/a
+  2023:  n/a
+  2024:  n/a
+  2025:  n/a
+
+  ── Annual Revenue Growth (YoY %) ──
+  2007:  n/a
+  2008:  n/a
+  2008:  n/a
+  2009:  n/a
+  2010:  n/a
+  2011:  n/a
+  2012:  n/a
+  2013:  n/a
+  2014:  n/a
+  2015:  n/a
+  2016:  n/a
+  2017:  n/a
+  2018:  n/a
+  2019:  n/a
+  2020:  n/a
+  2021:  n/a
+  2022:  n/a
+  2023:  n/a
+  2024:  n/a
+  2025:  n/a
+
+  ── Annual Gross Margin (%) ──
+  2007:  n/a
+  2008:  n/a
+  2008:  n/a
+  2009:  n/a
+  2010:  n/a
+  2011:  n/a
+  2012:  n/a
+  2013:  n/a
+  2014:  n/a
+  2015:  n/a
+  2016:  n/a
+  2017:  n/a
+  2018:  n/a
+  2019:  n/a
+  2020:  n/a
+  2021:  n/a
+  2022:  n/a
+  2023:  n/a
+  2024:  n/a
+  2025:  n/a
+
+  ── Annual Operating Margin (%) ──
+  2007:  n/a
+  2008:  n/a
+  2008:  n/a
+  2009:  n/a
+  2010:  n/a
+  2011:  n/a
+  2012:  n/a
+  2013:  n/a
+  2014:  n/a
+  2015:  n/a
+  2016:  n/a
+  2017:  n/a
+  2018:  n/a
+  2019:  n/a
+  2020:  n/a
+  2021:  n/a
+  2022:  n/a
+  2023:  n/a
+  2024:  n/a
+  2025:  n/a
+
+  ── Annual Net Margin (%) ──
+  2007:  n/a
+  2008:  n/a
+  2008:  n/a
+  2009:  n/a
+  2010:  n/a
+  2011:  n/a
+  2012:  n/a
+  2013:  n/a
+  2014:  n/a
+  2015:  n/a
+  2016:  n/a
+  2017:  n/a
+  2018:  n/a
+  2019:  n/a
+  2020:  n/a
+  2021:  n/a
+  2022:  n/a
+  2023:  n/a
+  2024:  n/a
+  2025:  n/a
+
+  ── Annual Net Income ($B) ──
+  2007:  11.60B
+  2008:  2.32B
+  2008:  2.32B
+  2009:  13.39B
+  2010:  8.35B
+  2011:  4.44B
+  2012:  7.48B
+  2013:  8.04B
+  2014:  8.48B
+  2015:  6.08B
+  2016:  7.40B
+  2017:  4.29B
+  2018:  10.46B
+  2019:  8.47B
+  2020:  9.46B
+  2021:  21.64B
+  2022:  11.26B
+  2023:  8.52B
+  2024:  14.28B
+  2025:  17.18B
+
+  ── Annual FCF ($B) ──
+  2007:  n/a
+  2008:  n/a
+  2008:  n/a
+  2009:  n/a
+  2010:  n/a
+  2011:  n/a
+  2012:  n/a
+  2013:  n/a
+  2014:  n/a
+  2015:  n/a
+  2016:  3.63B
+  2017:  -23.67B
+  2018:  8.58B
+  2019:  15.43B
+  2020:  -24.84B
+  2021:  1.63B
+  2022:  4.96B
+  2023:  -14.90B
+  2024:  -15.30B
+  2025:  -47.22B
+
+  ── Annual EPS diluted ($) ──
+  2007:  24.73$
+  2008:  4.47$
+  2008:  4.47$
+  2009:  22.13$
+  2010:  13.18$
+  2011:  4.51$
+  2012:  14.13$
+  2013:  15.46$
+  2014:  17.07$
+  2015:  12.14$
+  2016:  16.29$
+  2017:  9.01$
+  2018:  25.27$
+  2019:  21.03$
+  2020:  24.74$
+  2021:  59.45$
+  2022:  30.06$
+  2023:  22.87$
+  2024:  40.54$
+  2025:  51.32$
+
+  ── Annual EPS Growth (YoY %) ──
+  2007:  n/a
+  2008:  -81.9%
+  2008:  +0.0%
+  2009:  +395.1%
+  2010:  -40.4%
+  2011:  -65.8%
+  2012:  +213.3%
+  2013:  +9.4%
+  2014:  +10.4%
+  2015:  -28.9%
+  2016:  +34.2%
+  2017:  -44.7%
+  2018:  +180.5%
+  2019:  -16.8%
+  2020:  +17.6%
+  2021:  +140.3%
+  2022:  -49.4%
+  2023:  -23.9%
+  2024:  +77.3%
+  2025:  +26.6%
+
+  ── Annual ROE (%) ──
+  2007:  27.1%
+  2008:  3.6%
+  2008:  3.6%
+  2009:  18.9%
+  2010:  10.8%
+  2011:  6.3%
+  2012:  9.9%
+  2013:  10.2%
+  2014:  10.2%
+  2015:  7.0%
+  2016:  8.5%
+  2017:  5.2%
+  2018:  11.6%
+  2019:  9.4%
+  2020:  9.9%
+  2021:  19.7%
+  2022:  9.6%
+  2023:  7.3%
+  2024:  11.7%
+  2025:  13.7%
+
+  ── Annual ROA (%) ──
+  2007:  n/a
+  2008:  0.2%
+  2008:  0.2%
+  2009:  1.6%
+  2010:  0.9%
+  2011:  0.5%
+  2012:  0.8%
+  2013:  0.9%
+  2014:  1.0%
+  2015:  0.7%
+  2016:  0.9%
+  2017:  0.5%
+  2018:  1.1%
+  2019:  0.9%
+  2020:  0.8%
+  2021:  1.5%
+  2022:  0.8%
+  2023:  0.5%
+  2024:  0.9%
+  2025:  0.9%
+
+  ── Annual Debt-to-Equity (x) ──
+  2007:  n/a
+  2008:  n/a
+  2008:  n/a
+  2009:  2.78x
+  2010:  2.43x
+  2011:  2.58x
+  2012:  2.33x
+  2013:  2.15x
+  2014:  2.11x
+  2015:  2.14x
+  2016:  2.27x
+  2017:  2.77x
+  2018:  2.62x
+  2019:  n/a
+  2020:  n/a
+  2021:  n/a
+  2022:  n/a
+  2023:  n/a
+  2024:  n/a
+  2025:  n/a
+
+  ── Annual Long-term Debt ($B) ──
+  2007:  n/a
+  2008:  n/a
+  2008:  n/a
+  2009:  196.29B
+  2010:  188.25B
+  2011:  181.72B
+  2012:  176.27B
+  2013:  168.49B
+  2014:  174.55B
+  2015:  185.94B
+  2016:  197.49B
+  2017:  227.58B
+  2018:  236.03B
+  2019:  n/a
+  2020:  n/a
+  2021:  n/a
+  2022:  n/a
+  2023:  n/a
+  2024:  n/a
+  2025:  n/a
+
+  ── Annual Equity ($B) ──
+  2007:  42.80B
+  2008:  64.37B
+  2008:  64.37B
+  2009:  70.71B
+  2010:  77.36B
+  2011:  70.38B
+  2012:  75.72B
+  2013:  78.47B
+  2014:  82.80B
+  2015:  86.73B
+  2016:  86.89B
+  2017:  82.24B
+  2018:  90.19B
+  2019:  90.27B
+  2020:  95.93B
+  2021:  109.93B
+  2022:  117.19B
+  2023:  116.91B
+  2024:  122.00B
+  2025:  124.97B
+
+  ── Annual Total Assets ($B) ──
+  2007:  n/a
+  2008:  1112.23B
+  2008:  1112.23B
+  2009:  848.94B
+  2010:  911.33B
+  2011:  923.23B
+  2012:  938.56B
+  2013:  911.12B
+  2014:  855.84B
+  2015:  861.40B
+  2016:  860.17B
+  2017:  916.78B
+  2018:  931.80B
+  2019:  992.97B
+  2020:  1163.03B
+  2021:  1463.99B
+  2022:  1441.80B
+  2023:  1641.59B
+  2024:  1675.97B
+  2025:  1809.32B
+
+  ── Annual Shares Outstanding (M) ──
+  2007:  n/a
+  2008:  442.5M
+  2008:  442.5M
+  2009:  515.1M
+  2010:  507.5M
+  2011:  485.5M
+  2012:  465.1M
+  2013:  446.4M
+  2014:  430.3M
+  2015:  419.5M
+  2016:  392.6M
+  2017:  374.8M
+  2018:  367.7M
+  2019:  347.3M
+  2020:  344.1M
+  2021:  333.6M
+  2022:  334.9M
+  2023:  323.4M
+  2024:  310.7M
+  2025:  296.5M
+
+  ── Annual Share Dilution YoY (%) ──
+  2007:  n/a
+  2008:  n/a
+  2008:  +0.0%
+  2009:  +16.4%
+  2010:  -1.5%
+  2011:  -4.3%
+  2012:  -4.2%
+  2013:  -4.0%
+  2014:  -3.6%
+  2015:  -2.5%
+  2016:  -6.4%
+  2017:  -4.5%
+  2018:  -1.9%
+  2019:  -5.5%
+  2020:  -0.9%
+  2021:  -3.1%
+  2022:  +0.4%
+  2023:  -3.4%
+  2024:  -3.9%
+  2025:  -4.6%
+
+  ── Annual EBITDA ($B) ──
+  2007:  n/a
+  2008:  n/a
+  2008:  n/a
+  2009:  n/a
+  2010:  n/a
+  2011:  n/a
+  2012:  n/a
+  2013:  n/a
+  2014:  n/a
+  2015:  n/a
+  2016:  n/a
+  2017:  n/a
+  2018:  n/a
+  2019:  n/a
+  2020:  n/a
+  2021:  n/a
+  2022:  n/a
+  2023:  n/a
+  2024:  n/a
+  2025:  n/a
+
+  ── Annual Operating CF ($B) ──
+  2007:  n/a
+  2008:  n/a
+  2008:  n/a
+  2009:  n/a
+  2010:  n/a
+  2011:  n/a
+  2012:  n/a
+  2013:  n/a
+  2014:  n/a
+  2015:  n/a
+  2016:  6.49B
+  2017:  -20.49B
+  2018:  16.56B
+  2019:  23.87B
+  2020:  -18.54B
+  2021:  6.30B
+  2022:  8.71B
+  2023:  -12.59B
+  2024:  -13.21B
+  2025:  -45.15B
+
+  ── Annual CapEx ($B) ──
+  2007:  n/a
+  2008:  n/a
+  2008:  n/a
+  2009:  n/a
+  2010:  n/a
+  2011:  1.18B
+  2012:  0.96B
+  2013:  0.71B
+  2014:  0.68B
+  2015:  1.83B
+  2016:  2.87B
+  2017:  3.18B
+  2018:  7.98B
+  2019:  8.44B
+  2020:  6.31B
+  2021:  4.67B
+  2022:  3.75B
+  2023:  2.32B
+  2024:  2.09B
+  2025:  2.06B
+
+  ── Annual Cash ($B) ──
+  2007:  n/a
+  2008:  n/a
+  2008:  n/a
+  2009:  n/a
+  2010:  39.79B
+  2011:  56.01B
+  2012:  72.67B
+  2013:  78.87B
+  2014:  75.03B
+  2015:  93.44B
+  2016:  121.71B
+  2017:  110.05B
+  2018:  130.55B
+  2019:  133.55B
+  2020:  155.84B
+  2021:  261.04B
+  2022:  241.83B
+  2023:  241.58B
+  2024:  182.09B
+  2025:  164.26B
+
+  ── Price History ──
+  Bars available  : 252 trading days
+  First close     : $599.19
+  Last close      : $968.96
+  52w high (proxy): $970.75
+  52w low  (proxy): $581.41
+
+──────────────────────────────────────────────────────────────────────
+  STEP 2 — CLASSIFICATION
+──────────────────────────────────────────────────────────────────────
+
+  Winner          : Financial
+  Confidence      : 60%
+
+  All type scores:
+    Financial                  60.0  [██████░░░░]
+    Dividend / Defensive       35.0  [████░░░░░░]
+    Mature Tech                30.0  [███░░░░░░░]
+    Turnaround                 15.0  [██░░░░░░░░]
+    Hypergrowth Tech            0.0  [░░░░░░░░░░]
+    Pharma / Healthcare         0.0  [░░░░░░░░░░]
+    Cyclical                    0.0  [░░░░░░░░░░]
+    Other                       0.0  [░░░░░░░░░░]
+
+  Winning signals:
+    • sector: Financial Services
+
+──────────────────────────────────────────────────────────────────────
+  STEP 3 — BENCHMARK
+──────────────────────────────────────────────────────────────────────
+
+  Benchmark for   : Financial
+
+  Block weights (used for overall score):
+    quality        0.28
+    valuation      0.27
+    technical      0.13
+    risk           0.22
+    style_fit      0.10
+
+──────────────────────────────────────────────────────────────────────
+  STEP 4 — BLOCK SCORES
+──────────────────────────────────────────────────────────────────────
+
+  ── Block: QUALITY ──  score=4.60/10  coverage=40%  [█████░░░░░]
+  Sub-metrics:
+    eps_growth                10.00  [██████████]
+    roe                        4.55  [█████░░░░░]
+  Notes:
+    • Financial sector: gross margin, FCF margin, CFO/NI and accruals not applicable
+
+  ── Block: VALUATION ──  score=3.02/10  coverage=75%  [███░░░░░░░]
+  Sub-metrics:
+    pe_trailing                3.25  [███░░░░░░░]
+    pe_forward                 3.59  [████░░░░░░]
+    ptbv                       3.64  [████░░░░░░]
+  Notes:
+    • P/TBV 2.29
+
+  ── Block: TECHNICAL ──  score=7.50/10  coverage=100%  [████████░░]
+  Sub-metrics:
+    price_vs_ma50              9.52  [██████████]
+    price_vs_ma200             9.89  [██████████]
+    momentum_3m                5.54  [██████░░░░]
+    momentum_6m                7.44  [███████░░░]
+    drawdown                   9.96  [██████████]
+    trend_quality              5.12  [█████░░░░░]
+    relative_strength          5.03  [█████░░░░░]
+  Notes:
+    • price above MA200 — bullish structure
+    • near 52-week high
+
+  ── Block: RISK ──  score=7.63/10  coverage=100%  [████████░░]
+  Sub-metrics:
+    beta                       6.63  [███████░░░]
+    dilution_risk              9.27  [█████████░]
+    short_ratio                6.98  [███████░░░]
+  Notes:
+    • share buybacks (-2.1%/yr avg — positive)
+
+  ── Block: STYLE_FIT ──  score=5.00/10  coverage=0%  [█████░░░░░]
+  Notes:
+    • no style-specific thresholds — neutral style fit
+
+──────────────────────────────────────────────────────────────────────
+  STEP 5 — HORIZON SCORES
+──────────────────────────────────────────────────────────────────────
+
+  Horizon weight tables:
+  block           short   medium     long
+  ────────────  ───────  ───────  ───────
+  quality          0.10     0.25     0.35
+  valuation        0.20     0.30     0.15
+  technical        0.40     0.20     0.10
+  risk             0.25     0.15     0.25
+  style_fit        0.05     0.10     0.15
+
+  Short-term   : 62.2 / 100
+  Medium-term  : 52.0 / 100
+  Long-term    : 54.7 / 100
+
+  Overall score (benchmark weights × 10):
+  = 4.60×0.28 + 3.02×0.27 + 7.50×0.13 + 7.63×0.22 + 5.00×0.10
+  = 5.2575  × 10 = 52.6 / 100
+
+──────────────────────────────────────────────────────────────────────
+  STEP 6 — STOP FACTORS
+──────────────────────────────────────────────────────────────────────
+
+  🟡 [WARNING] Negative FCF
+     Persistently negative free cash flow over last 3 years
+
+  🟡 [WARNING] Cashflow Anomaly
+     TTM OCF $-87.7B vs 5yr avg $-11.2B (±$21.6B) — 684% collapse; may distort DCF and quality metrics
+
+──────────────────────────────────────────────────────────────────────
+  STEP 7 — FAIR VALUE ESTIMATE
+──────────────────────────────────────────────────────────────────────
+
+  Current price   : $968.96
+  Fair value      : $528.55
+  Upside/downside : -45.5% downside
+  Status          : 🔴 Overvalued
+
+  Model breakdown:
+    Analyst         $  961.00  weight=55.00%
+
+  Model assumptions:
+    • Analyst target: $961.00 (n=20 analysts, confidence=1.04x)
+
+──────────────────────────────────────────────────────────────────────
+  STEP 8 — FINAL RESULT
+──────────────────────────────────────────────────────────────────────
+
+  Type            : Financial  (confidence 60%)
+  Rating             : Weak
+  Overall score      : 52.6 / 100
+  Investment Quality : Hold
+  Entry Decision     : Watch
+
+  Short-term      : 62.2 / 100
+  Medium-term     : 52.0 / 100
+  Long-term       : 54.7 / 100
+
+  Block scores summary:
+    quality       4.6 / 10  [█████░░░░░]
+    valuation     3.0 / 10  [███░░░░░░░]
+    technical     7.5 / 10  [████████░░]
+    risk          7.6 / 10  [████████░░]
+    style_fit     5.0 / 10  [█████░░░░░]
+
+  Active stop factors:
+    🟡 Negative FCF: Persistently negative free cash flow over last 3 years
+    🟡 Cashflow Anomaly: TTM OCF $-87.7B vs 5yr avg $-11.2B (±$21.6B) — 684% collapse; may distort DCF and quality metrics
+
+  Analyst notes:
+    • [quality] Financial sector: gross margin, FCF margin, CFO/NI and accruals not applicable
+    • [valuation] P/TBV 2.29
+    • [technical] price above MA200 — bullish structure
+    • [technical] near 52-week high
+    • [risk] share buybacks (-2.1%/yr avg — positive)
+    • [style_fit] no style-specific thresholds — neutral style fit
+
+──────────────────────────────────────────────────────────────────────
+  STEP 9 — TRADE RECOMMENDATION
+──────────────────────────────────────────────────────────────────────
+
+  🟡 WATCH — watchlist
+
+  Причины:
+    • Score 53/100 — below minimum threshold (60); keep on watchlist
+
+──────────────────────────────────────────────────────────────────────
+  STEP 10 — AI CONTEXT REVIEW PROMPT
+──────────────────────────────────────────────────────────────────────
+
+  Скопируй блок ниже и отправь в AI-модель (без доступа к интернету).
+  AI проверит решение и даст contextual review на основе наших данных.
+
+======================================================================
+You are an institutional equity research analyst performing a CONTEXTUAL REVIEW.
+You have NO internet access. Work ONLY with the structured data provided below.
+
+Your role is to complement (not override) a deterministic quantitative scoring model.
+The model has already done the math. You provide the CONTEXTUAL LAYER:
+
+1. VALIDATE — Does the quant decision (Hold) make sense given the data?
+2. DISTORTIONS — Are any metrics likely distorted? (one-off events, cyclical peaks,
+   accounting artefacts, M&A noise, split contamination, base-effect EPS jumps,
+   elevated accruals, CapEx supercycles compressing FCF)
+3. NARRATIVE RISKS — Key risks NOT visible in the numbers (sector dynamics,
+   product concentration, regulatory exposure, competitive threats by industry type)
+4. NARRATIVE TAILWINDS — Structural advantages that may justify a premium or
+   sustain above-average growth (platform effects, pricing power, TAM expansion,
+   moat signals: gross margin trend, FCF conversion, revenue CAGR)
+5. MODEL SPREAD — The fair value models show 0.0% spread between valuation models.
+   Comment on WHY they diverge and which anchor is more trustworthy here.
+   If dcf_range is available, comment on whether bear/bull range changes the thesis.
+6. CONFIDENCE ADJUSTMENT — Integer from -10 to +5 on the overall score.
+   DISCIPLINE RULES (strictly enforce):
+     • Default is 0. Only deviate if you have SPECIFIC evidence in the data.
+     • Negative (-1 to -5): visible risk the quant model underweights (e.g., elevated
+       accruals >5%, CapEx spiral reducing FCF, high short interest, sector headwinds).
+     • Strongly negative (-6 to -10): only for structural deterioration (NI/OCF split,
+       massive insider selling, regulatory crisis, product cliff).
+     • Positive (+1 to +3): clear moat expansion visible in margins + FCF conversion.
+     • Positive (+4 to +5): rare — exceptional quality AND valuation discount.
+     • NEVER positive just because growth is high or the company is well-known.
+
+Respond in EXACTLY this format (no extra sections):
+---
+VALIDATION: [1-2 sentences]
+DISTORTIONS: [bullet list, or "None detected"]
+NARRATIVE RISKS: [bullet list]
+NARRATIVE TAILWINDS: [bullet list, or "None significant"]
+MODEL SPREAD NOTE: [1-2 sentences]
+CONFIDENCE ADJUSTMENT: [integer -10..+5] — [one sentence justification citing specific data]
+SUMMARY: [2-3 sentences — your overall contextual verdict]
+---
+
+DATA:
+{
+  "ticker": "GS",
+  "company_type": "Financial",
+  "classification_confidence_pct": 60,
+  "sector": "Financial Services",
+  "industry": "Capital Markets",
+  "data_quality": "partial",
+  "scores": {
+    "overall": 52.6,
+    "quality": 4.6,
+    "valuation": 3.0,
+    "technical": 7.5,
+    "risk": 7.6,
+    "style_fit": 5.0
+  },
+  "horizon_scores": {
+    "short": 62.2,
+    "medium": 52.0,
+    "long": 54.7
+  },
+  "quant_decision": "Hold",
+  "market_data": {
+    "current_price": 968.96,
+    "market_cap_B": 285.85,
+    "pe_trailing": 17.7,
+    "pe_forward": 14.82,
+    "pe_hist_avg": 12.6,
+    "pe_hist_high": 17.0,
+    "pe_hist_low": 5.8,
+    "pe_vs_hist_avg_pct": 40.5,
+    "normalized_pe": 32.2,
+    "normalized_eps": 30.06,
+    "cashflow_anomaly": true,
+    "cashflow_anomaly_detail": "TTM OCF $-87.7B vs 5yr avg $-11.2B (±$21.6B) — 684% collapse; may distort DCF and quality metrics",
+    "data_quality_detail": {
+      "accounting": "reliable",
+      "cashflow": "sector_n_a",
+      "valuation": "reliable",
+      "historical": "full",
+      "sector_fit": "unsupported"
+    },
+    "beta": 1.27,
+    "dividend_yield_pct": 1.86,
+    "analyst_target_median": 961.0,
+    "analyst_count": 20,
+    "recommendation": "hold",
+    "recommendation_mean": 2.54,
+    "short_ratio_days": 3.53,
+    "short_pct_float": 2.37,
+    "institutional_pct": 75.36,
+    "insider_pct": 0.53,
+    "split_info": null
+  },
+  "financials_last_3yr": {
+    "revenue_growth_pct": [],
+    "gross_margin_pct": [],
+    "operating_margin_pct": [],
+    "net_margin_pct": [],
+    "roe_pct": [
+      7.28,
+      11.7,
+      13.74
+    ],
+    "debt_to_equity": [],
+    "fcf_B": [
+      -14.9,
+      -15.3,
+      -47.22
+    ]
+  },
+  "ttm": {
+    "revenue_B": null,
+    "gross_margin_pct": null,
+    "operating_margin_pct": null,
+    "net_margin_pct": null,
+    "fcf_margin_pct": null,
+    "fcf_B": -89.89,
+    "net_income_B": 18.19,
+    "operating_cf_B": -87.73,
+    "cfo_ni_ratio": -4.82,
+    "accruals_pct_assets": 5.85
+  },
+  "fair_value": {
+    "current_price": 968.96,
+    "fair_value_composite": 528.55,
+    "upside_pct": -45.5,
+    "status": "Overvalued",
+    "model_spread_pct": 0.0,
+    "dcf_range": {
+      "bear": null,
+      "base": null,
+      "bull": null
+    },
+    "models": {
+      "Analyst": {
+        "value": 961.0,
+        "weight_pct": 55.0
+      }
+    },
+    "dcf_assumptions": [],
+    "analyst_assumptions": [
+      "Analyst target: $961.00 (n=20 analysts, confidence=1.04x)"
+    ]
+  },
+  "stop_factors": [
+    {
+      "name": "Negative FCF",
+      "severity": "warning",
+      "detail": "Persistently negative free cash flow over last 3 years"
+    },
+    {
+      "name": "Cashflow Anomaly",
+      "severity": "warning",
+      "detail": "TTM OCF $-87.7B vs 5yr avg $-11.2B (±$21.6B) — 684% collapse; may distort DCF and quality metrics"
+    }
+  ],
+  "trade_recommendation": {
+    "action": "Watch",
+    "horizon": "",
+    "hold_months": null,
+    "limit_price": null,
+    "target_price": null,
+    "stop_price": null,
+    "rationale": [
+      "Score 53/100 — below minimum threshold (60); keep on watchlist"
+    ]
+  },
+  "key_quant_notes": [
+    "[quality] Financial sector: gross margin, FCF margin, CFO/NI and accruals not applicable",
+    "[valuation] P/TBV 2.29",
+    "[technical] price above MA200 — bullish structure",
+    "[technical] near 52-week high",
+    "[risk] share buybacks (-2.1%/yr avg — positive)",
+    "[style_fit] no style-specific thresholds — neutral style fit"
+  ],
+  "capex_trend": {
+    "capex_ttm_B": 2.16,
+    "capex_B_last3yr": [
+      2.32,
+      2.09,
+      2.06
+    ],
+    "capex_to_revenue_pct_ttm": null
+  },
+  "moat_signals": {
+    "gross_margin_5yr_avg_pct": null,
+    "gross_margin_trend": "stable_or_contracting",
+    "operating_margin_5yr_avg_pct": null,
+    "fcf_conversion_3yr_avg": -1.68,
+    "revenue_cagr_5yr_pct": null
+  }
+}
+======================================================================
+
+══════════════════════════════════════════════════════════════════════

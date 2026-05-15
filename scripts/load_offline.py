@@ -84,13 +84,32 @@ def load_raw_facts(ticker: str) -> dict:
         return json.load(f)
 
 
-def load_ticker(ticker: str) -> tuple[dict[str, pd.DataFrame], pd.DataFrame, dict]:
+def load_splits(ticker: str) -> pd.DataFrame:
+    """
+    Load saved split history for a ticker.
+
+    Returns a DataFrame with columns [date (datetime), ratio (float)],
+    sorted ascending by date.  Returns an empty DataFrame if the file does
+    not exist (e.g. data was fetched before split tracking was added).
+    """
+    path = OUT_DIR / ticker / "yf_splits.parquet"
+    if not path.exists():
+        return pd.DataFrame(columns=["date", "ratio"])
+    df = pd.read_parquet(path)
+    if df.empty:
+        return df
+    df["date"] = pd.to_datetime(df["date"])
+    return df.sort_values("date").reset_index(drop=True)
+
+
+def load_ticker(ticker: str) -> tuple[dict[str, pd.DataFrame], pd.DataFrame, dict, pd.DataFrame]:
     """
     Load all offline data for a ticker.
 
-    Returns (fundamentals, price_df, info) — same types as the live fetchers.
+    Returns (fundamentals, price_df, info, splits_df) — same types as the live fetchers
+    plus the split history DataFrame.
     """
-    return load_fundamentals(ticker), load_ohlcv(ticker), load_info(ticker)
+    return load_fundamentals(ticker), load_ohlcv(ticker), load_info(ticker), load_splits(ticker)
 
 
 # ---------------------------------------------------------------------------
@@ -105,9 +124,9 @@ def normalise_offline(ticker: str):
     """
     from src.data.normalizer import normalise
 
-    fundamentals, price_df, info = load_ticker(ticker)
+    fundamentals, price_df, info, splits_df = load_ticker(ticker)
     spy = load_spy()
-    return normalise(fundamentals, price_df, info, ticker=ticker, spy_prices=spy)
+    return normalise(fundamentals, price_df, info, ticker=ticker, spy_prices=spy, splits_df=splits_df)
 
 
 def analyse_offline(ticker: str):
@@ -188,8 +207,8 @@ def main() -> None:
 
     if args.analyse:
         result = analyse_offline(ticker)
-        from src.output.formatter import format_result
-        print(format_result(result))
+        from src.output.formatter import format_report
+        print(format_report(result))
 
     if not any([args.show_info, args.show_sec, args.normalise, args.analyse]):
         # Default: brief summary

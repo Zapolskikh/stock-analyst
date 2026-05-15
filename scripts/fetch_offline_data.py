@@ -89,7 +89,7 @@ def fetch_ticker(ticker: str) -> None:
         print(f"ERROR: {exc}")
 
     # ── 2. OHLCV 5-year ──────────────────────────────────────
-    print("  [2/3] OHLCV 5y ...", end=" ", flush=True)
+    print("  [2/4] OHLCV 5y ...", end=" ", flush=True)
     try:
         df_price = fetch_ohlcv(ticker, period="5y")
         save_parquet(df_price, out / "ohlcv.parquet")
@@ -97,8 +97,27 @@ def fetch_ticker(ticker: str) -> None:
     except Exception as exc:
         print(f"ERROR: {exc}")
 
+    # ── 2b. Split history ───────────────────────────────────────────
+    print("  [3/4] Split history ...", end=" ", flush=True)
+    try:
+        t_obj = yf.Ticker(ticker)
+        splits = t_obj.splits  # pd.Series: date → ratio
+        if splits is not None and not splits.empty:
+            df_splits = splits.reset_index()
+            df_splits.columns = ["date", "ratio"]
+            df_splits["date"] = pd.to_datetime(df_splits["date"]).dt.tz_localize(None)
+            save_parquet(df_splits, out / "yf_splits.parquet")
+            print(f"OK  ({len(df_splits)} splits: {df_splits['ratio'].tolist()})")
+        else:
+            # Save empty placeholder so load_offline knows the file was fetched
+            df_splits = pd.DataFrame(columns=["date", "ratio"])
+            save_parquet(df_splits, out / "yf_splits.parquet")
+            print("OK  (no splits on record)")
+    except Exception as exc:
+        print(f"ERROR: {exc}")
+
     # ── 3. SEC EDGAR ──────────────────────────────────────────
-    print("  [3/3] SEC EDGAR fundamentals ...", end=" ", flush=True)
+    print("  [4/4] SEC EDGAR fundamentals ...", end=" ", flush=True)
     try:
         # Save parsed concepts (one parquet per metric)
         fundamentals = fetch_fundamentals(ticker)

@@ -355,12 +355,15 @@ def _cyclical() -> Benchmark:
             # Cyclicals are cheap — low P/E is the entry signal
             "pe_trailing":           _pe_threshold(5, 10, 18, 30),
             "pe_forward":            _pe_threshold(4, 8, 15, 25),
-            # P/S: cyclical — asset-heavy, P/S > 2 дорого
+            # Normalized P/E (mid-cycle): replaces trailing PE for valuation scoring.
+            # Based on median of last 7yr EPS to smooth commodity / auto cycles.
+            # XOM normalized ~7.8x = cheap;  GM ~5.5x = very cheap
+            "normalized_pe":         _pe_threshold(4, 8, 14, 22),
+            # P/S: cyclical — asset-heavy, P/S > 2 expensive
             "ps_ratio":              _ps_threshold(0.3, 1, 2.5, 5),
-            # FCF yield: высокий yield оправдывает cyclical риск
+            # FCF yield: high yield justifies cyclical risk
             "fcf_yield":             _fcf_yield_threshold(2, 5, 8, 12),
-            # PEG не используется: прибыль нестабильна
-            # EV/EBITDA: key metric for cyclicals — assets, earnings volatile
+            # EV/EBITDA: key metric for cyclicals
             "ev_to_ebitda":          _ev_ebitda_threshold(4, 8, 15, 25),
             "debt_to_equity":        _de_threshold(0.3, 1.0, 2.5, 5.0),
             "beta":                  Threshold([(0.5, 10), (1.0, 8), (1.5, 5), (2.5, 2), (3.5, 0)]),
@@ -382,17 +385,15 @@ def _financial() -> Benchmark:
         thresholds={
             "revenue_growth":        _rev_growth_ascending(0, 5, 12),
             "eps_growth":            _rev_growth_ascending(0, 5, 12),
-            # Financials use net margin as efficiency proxy
+            # Financials: net margin as efficiency proxy (lower than industrials — normal)
             "net_margin":            _margin_threshold(10, 18, 25, 35),
             "roe":                   _roe_threshold(5, 10, 15, 25),
             # Low P/E typical for banks
             "pe_trailing":           _pe_threshold(6, 10, 16, 25),
             "pe_forward":            _pe_threshold(5, 9, 14, 22),
-            # P/S: банки — P/S 1–3 норма
-            "ps_ratio":              _ps_threshold(0.5, 1.5, 4, 8),
-            # FCF yield: банки платят дивиденды и выкупают акции
-            "fcf_yield":             _fcf_yield_threshold(1.5, 3, 6, 10),
-            # PEG не используется для финансового сектора
+            # P/TBV — primary bank valuation metric (replaces P/S and FCF yield)
+            # Below 1.0 = cheap, 1.0–2.0 = fair, > 3.0 = expensive
+            "ptbv":                  Threshold([(0.5, 10), (1.0, 8), (1.5, 6), (2.5, 3), (4.0, 0)]),
             # Risk — financials carry structural leverage; D/E not comparable
             "beta":                  _beta_threshold(),
             "revenue_growth_style":  _rev_growth_ascending(2, 6, 12),

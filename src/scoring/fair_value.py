@@ -105,8 +105,14 @@ _PEG_MAX_PE: dict[CompanyType, float] = {
 
 # Base weights per model [dcf, analyst_consensus, peg_eps]
 # Higher analyst weight for types where analyst coverage is rich & reliable
+# Base weights [dcf, analyst_consensus, peg_eps] per company type.
+# HYPERGROWTH_TECH: DCF is intentionally low (0.12) because:
+#   - discount rate uncertainty dominates at high-beta
+#   - 10-year terminal value assumptions are highly speculative for fast-movers
+#   - analyst consensus + PEG are empirically better anchors for this cohort
+# Even with declining beta fix, DCF at 20% still exerts too much drag on NVDA/TSLA.
 _BASE_WEIGHTS: dict[CompanyType, tuple[float, float, float]] = {
-    CompanyType.HYPERGROWTH_TECH:   (0.20, 0.50, 0.30),
+    CompanyType.HYPERGROWTH_TECH:   (0.12, 0.58, 0.30),
     CompanyType.MATURE_TECH:        (0.35, 0.40, 0.25),
     CompanyType.PHARMA:             (0.30, 0.45, 0.25),
     CompanyType.CYCLICAL:           (0.40, 0.35, 0.25),
@@ -127,12 +133,14 @@ _OVERVALUED_THRESHOLD   = -15.0   # premium ≥ 15%  → Overvalued
 
 @dataclass
 class FairValueResult:
-    fair_value:    float                              # composite estimate ($)
-    current_price: float                              # market price ($)
-    discount_pct:  float                              # positive = undervalued
-    status:        str                                # Undervalued / Fairly Valued / Overvalued
-    model_values:  dict[str, tuple[float, float]]     # name → (value, weight)
-    assumptions:   list[str] = field(default_factory=list)
+    fair_value:       float                              # composite estimate ($)
+    current_price:    float                              # market price ($)
+    discount_pct:     float                              # positive = undervalued
+    status:           str                                # Undervalued / Fairly Valued / Overvalued
+    model_values:     dict[str, tuple[float, float]]     # name → (value, weight)
+    assumptions:      list[str] = field(default_factory=list)
+    model_spread_pct: float = 0.0                        # (max_model - min_model) / fair_value × 100
+    dcf_range: tuple[float, float, float] | None = None  # (bear, base, bull) per-share estimates
 
     @property
     def upside_str(self) -> str:
@@ -215,10 +223,46 @@ def _fcf_reliability(nd: NormalisedData) -> float:
 # Model 1 — DCF on FCF
 # ---------------------------------------------------------------------------
 
-def _model_dcf(nd: NormalisedData, assumptions: list[str]) -> float | None:
+def _dcf_scenario(
+    fcf_base: float,
+    g1: float,
+    discount_rate: float,
+    shares: float,
+    net_cash: float,
+) -> float:
+    """Compute one DCF scenario (bear / base / bull) given explicit inputs.
+    Uses two-stage model: Stage 1 years 1-5 at g1, Stage 2 years 6-10 decays
+    linearly from g1 → _TERMINAL_G, then Gordon-growth terminal value.
+    Returns fair value per share.
+    """
+    pv_sum = 0.0
+    fcf_t = fcf_base
+    for t in range(1, 6):
+        fcf_t *= (1 + g1)
+        pv_sum += fcf_t / (1 + discount_rate) ** t
+    for t in range(6, 11):
+        blend = (t - 5) / 5
+        g_t = g1 * (1 - blend) + _TERMINAL_G * blend
+        fcf_t *= (1 + g_t)
+        pv_sum += fcf_t / (1 + discount_rate) ** t
+    tv = fcf_t * (1 + _TERMINAL_G) / (discount_rate - _TERMINAL_G)
+    pv_tv = tv / (1 + discount_rate) ** 10
+    fair_equity = pv_sum + pv_tv + net_cash
+    return fair_equity / shares
+
+
+def _model_dcf(
+    nd: NormalisedData,
+    company_type: CompanyType,
+    assumptions: list[str],
+) -> tuple[float | None, tuple[float, float, float] | None]:
     """
     Two-stage DCF discounting free cash flow.
-    Returns fair value per share, or None if data is insufficient.
+    Returns (base_value_per_share, (bear, base, bull)) or (None, None) if data insufficient.
+    Scenarios:
+      Bear: g1 × 0.55, discount_rate × 1.10  (growth 45% below base, cost of capital 10% higher)
+      Base: g1 × 1.00, discount_rate × 1.00
+      Bull: g1 × 1.45, discount_rate × 0.92  (growth 45% above base, cost of capital 8% lower)
     """
     # Base FCF: median of last 5yr positive values (robust to outliers).
     # Median avoids distortions from cyclical peak years, acquisition-year FCF
@@ -232,7 +276,7 @@ def _model_dcf(nd: NormalisedData, assumptions: list[str]) -> float | None:
         if fcf_base is None or not math.isfinite(fcf_base):
             fcf_base = _last_valid(nd.fcf_annual)
     if fcf_base is None or not math.isfinite(fcf_base) or fcf_base <= 0:
-        return None  # negative or missing FCF → model skipped
+        return None, None  # negative or missing FCF → model skipped
 
     # Shares outstanding — use last *positive* value; fall back to mkt_cap/price
     shares = _last_positive(nd.shares_outstanding_annual)
@@ -246,11 +290,25 @@ def _model_dcf(nd: NormalisedData, assumptions: list[str]) -> float | None:
         ):
             shares = nd.market_cap / nd.current_price
         else:
-            return None
+            return None, None
 
-    # Discount rate via CAPM
+    # Discount rate via CAPM.
+    # For hypergrowth companies with elevated beta (e.g. NVDA β=2.2), a flat
+    # CAPM → r=16.8% overpunishes: it assumes permanent high risk over 10 years.
+    # In reality these companies converge toward market beta (~1.0) as they mature.
+    # For HYPERGROWTH_TECH with beta > 1.5 we use a blended DCF beta:
+    #   dcf_beta = (current_beta + 1.0) / 2  — midpoint on the path to market beta.
+    # Example: NVDA β=2.2 → dcf_beta=1.6 → r=13.3% (vs punishing 16.8% flat CAPM).
     beta = nd.beta if (nd.beta is not None and math.isfinite(nd.beta)) else 1.0
-    discount_rate = _clamp(_RISK_FREE + beta * _ERP, _MIN_DISCOUNT, _MAX_DISCOUNT)
+    if company_type == CompanyType.HYPERGROWTH_TECH and beta > 1.5:
+        dcf_beta = (beta + 1.0) / 2  # blend: current beta → market beta (1.0)
+        assumptions.append(
+            f"DCF beta: blended {beta:.1f} → 1.0 over horizon → dcf_beta={dcf_beta:.2f} "
+            f"(hypergrowth maturity discount)"
+        )
+    else:
+        dcf_beta = beta
+    discount_rate = _clamp(_RISK_FREE + dcf_beta * _ERP, _MIN_DISCOUNT, _MAX_DISCOUNT)
 
     # FCF growth rate: endpoint CAGR over the positive FCF history.
     # CAGR (first → last positive value) is more robust than avg(YoY) because:
@@ -277,24 +335,6 @@ def _model_dcf(nd: NormalisedData, assumptions: list[str]) -> float | None:
 
     g1 = _clamp(g1_raw, -0.05, 0.30)  # Stage-1 growth per year, hard caps
 
-    # Stage 1: years 1–5
-    pv_sum = 0.0
-    fcf_t = fcf_base
-    for t in range(1, 6):
-        fcf_t *= (1 + g1)
-        pv_sum += fcf_t / (1 + discount_rate) ** t
-
-    # Stage 2: years 6–10, growth linearly decays to terminal_g
-    for t in range(6, 11):
-        blend = (t - 5) / 5   # 0 at t=6 → 1 at t=10
-        g_t = g1 * (1 - blend) + _TERMINAL_G * blend
-        fcf_t *= (1 + g_t)
-        pv_sum += fcf_t / (1 + discount_rate) ** t
-
-    # Terminal value (Gordon growth model, t=10)
-    tv = fcf_t * (1 + _TERMINAL_G) / (discount_rate - _TERMINAL_G)
-    pv_tv = tv / (1 + discount_rate) ** 10
-
     # Net cash adjustment (cash adds value, debt subtracts)
     cash = _last_valid(nd.cash_annual)
     debt = _last_valid(nd.long_term_debt_annual)
@@ -304,8 +344,24 @@ def _model_dcf(nd: NormalisedData, assumptions: list[str]) -> float | None:
     if math.isfinite(debt):
         net_cash -= debt
 
-    fair_equity = pv_sum + pv_tv + net_cash
-    fair_per_share = fair_equity / shares
+    # ── Base scenario ──────────────────────────────────────────────────────
+    base_val = _dcf_scenario(fcf_base, g1, discount_rate, shares, net_cash)
+
+    # ── Bear / Bull scenarios ──────────────────────────────────────────────
+    # Bear: growth 45% lower, discount rate 10% higher
+    # Bull: growth 45% higher (still hard-capped at 30%), discount 8% lower
+    g1_bear = _clamp(g1 * 0.55, -0.05, 0.30)
+    g1_bull = _clamp(g1 * 1.45, -0.05, 0.30)
+    r_bear  = _clamp(discount_rate * 1.10, _MIN_DISCOUNT, _MAX_DISCOUNT)
+    r_bull  = _clamp(discount_rate * 0.92, _MIN_DISCOUNT, _MAX_DISCOUNT)
+    bear_val = _dcf_scenario(fcf_base, g1_bear, r_bear, shares, net_cash)
+    bull_val = _dcf_scenario(fcf_base, g1_bull, r_bull, shares, net_cash)
+
+    dcf_range = (
+        round(bear_val, 2) if bear_val > 0 else None,
+        round(base_val, 2) if base_val > 0 else None,
+        round(bull_val, 2) if bull_val > 0 else None,
+    )
 
     base_label = "median" if len(fcf_pos) >= 3 else "TTM"
     assumptions.append(
@@ -313,7 +369,17 @@ def _model_dcf(nd: NormalisedData, assumptions: list[str]) -> float | None:
         f"g\u2081={g1*100:.1f}%/yr, r={discount_rate*100:.1f}%, "
         f"terminal_g={_TERMINAL_G*100:.0f}%, horizon=10yr"
     )
-    return fair_per_share if fair_per_share > 0 else None
+    assumptions.append(
+        f"DCF range: Bear ${bear_val:.2f} / Base ${base_val:.2f} / Bull ${bull_val:.2f}"
+    )
+
+    if base_val <= 0:
+        return None, None
+    return base_val, (
+        bear_val if bear_val > 0 else None,
+        base_val,
+        bull_val if bull_val > 0 else None,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -373,6 +439,29 @@ def _model_peg_eps(
     Skipped for FINANCIAL types where EPS volatility makes PEG unreliable.
     """
     if company_type in _PEG_SKIP_TYPES:
+        return None
+
+    # Skip when forward EPS implies a large earnings inflection vs TTM EPS.
+    # fwd_eps > 2.5 × ttm_eps means trailing EPS is depressed by GAAP charges
+    # (M&A amortisation, impairments, restructuring) that don't reflect
+    # ongoing earning power. In such cases:
+    #   - Historical EPS growth series is contaminated by the distortion year
+    #   - implied_g would be > 150% → already filtered, but then fallback to
+    #     trailing EPS growth (near 0%) produces an absurdly low fair P/E
+    # Better to skip PEG entirely and let DCF + analyst consensus carry the weight.
+    # Example: ABBV fwd_eps $16.23 vs TTM EPS $2.88 → ratio 5.6× → skip.
+    _fwd_for_check = nd.forward_eps
+    _ttm_for_check = nd.ttm_eps_diluted
+    if _ttm_for_check is None or not math.isfinite(_ttm_for_check):
+        _ttm_for_check = _last_valid(nd.eps_diluted_annual)
+    if (
+        _fwd_for_check is not None
+        and math.isfinite(_fwd_for_check)
+        and _fwd_for_check > 0
+        and math.isfinite(_ttm_for_check)
+        and _ttm_for_check > 0
+        and _fwd_for_check > _ttm_for_check * 2.5
+    ):
         return None
 
     # Skip if TTM EPS is not meaningful relative to price.
@@ -504,7 +593,7 @@ def compute_fair_value(
     assumptions: list[str] = []
 
     # ── Run the three models ──────────────────────────────────────────────
-    val_dcf = _model_dcf(nd, assumptions)
+    val_dcf, dcf_range = _model_dcf(nd, company_type, assumptions)
     val_analyst, analyst_confidence = _model_analyst_target(nd, assumptions)
     val_peg = _model_peg_eps(nd, company_type, assumptions)
 
@@ -532,6 +621,15 @@ def compute_fair_value(
         # Volatile FCF (cyclicals, acquisitive companies) → less reliable DCF.
         # Example: CTSH CoV≈0.12 → 0.88x;  CMI CoV≈0.56 → 0.44x;  ETN → 0.70x
         w_dcf = w_dcf * _fcf_reliability(nd)
+        # Cashflow anomaly: TTM OCF deviates sharply from history → DCF base FCF
+        # is likely distorted by a one-off event. Halve the DCF weight so the
+        # analyst target (or PEG) anchors the composite estimate instead.
+        # Example: KO TTM OCF = −$2.5B vs 5yr avg $9.8B → DCF weight ×0.5
+        if nd.cashflow_anomaly:
+            w_dcf *= 0.5
+            assumptions.append(
+                "DCF weight halved — cashflow anomaly detected (TTM OCF diverges from history)"
+            )
     if val_analyst is None:
         w_analyst = 0.0
     else:
@@ -548,6 +646,35 @@ def compute_fair_value(
     w_dcf     /= total_w
     w_analyst /= total_w
     w_peg     /= total_w
+
+    # Context-aware analyst cap.
+    # The cap is type- and model-count-aware:
+    #
+    #   3 models (DCF + Analyst + PEG): cap 40% — two quant models exist,
+    #     analyst should be a minority voice.
+    #
+    #   2 models + HYPERGROWTH_TECH: cap 72% — DCF is highly unreliable for
+    #     high-beta hypergrowth over a 10-year horizon; 50+ analysts covering
+    #     the stock provide a far better anchor than a speculative DCF.
+    #     Without a higher cap the excess redistribution forces DCF to 45%
+    #     regardless of its 12% base weight — defeating the intent.
+    #
+    #   2 models + other types: cap 55% — DCF gets reasonable anchor role.
+    models_available = sum(1 for v in [val_dcf, val_analyst, val_peg] if v is not None)
+    if models_available >= 3:
+        _ANALYST_MAX_WEIGHT = 0.40
+    elif company_type == CompanyType.HYPERGROWTH_TECH:
+        _ANALYST_MAX_WEIGHT = 0.72
+    else:
+        _ANALYST_MAX_WEIGHT = 0.55
+    if w_analyst > _ANALYST_MAX_WEIGHT:
+        excess = w_analyst - _ANALYST_MAX_WEIGHT
+        w_analyst = _ANALYST_MAX_WEIGHT
+        other_sum = w_dcf + w_peg
+        if other_sum > 0:
+            w_dcf += excess * (w_dcf / other_sum)
+            w_peg += excess * (w_peg / other_sum)
+        # If no other models: analyst keeps full weight (already handled above)
 
     # Composite fair value
     fv = (
@@ -573,6 +700,15 @@ def compute_fair_value(
     if val_peg is not None:
         model_values["PEG-EPS"] = (val_peg, w_peg)
 
+    # Model spread: how much do the individual estimates diverge from each other?
+    # Expressed as (max - min) / composite × 100.  High spread (>60%) means the
+    # models disagree significantly — a signal for the AI layer to investigate.
+    raw_vals = [v for v, _ in model_values.values()]
+    if len(raw_vals) >= 2 and fv > 0:
+        model_spread_pct = round((max(raw_vals) - min(raw_vals)) / fv * 100, 1)
+    else:
+        model_spread_pct = 0.0
+
     return FairValueResult(
         fair_value=round(fv, 2),
         current_price=round(price, 2),
@@ -580,4 +716,6 @@ def compute_fair_value(
         status=status,
         model_values=model_values,
         assumptions=assumptions,
+        model_spread_pct=model_spread_pct,
+        dcf_range=dcf_range,
     )

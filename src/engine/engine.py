@@ -75,6 +75,33 @@ class StopFactor:
 
 
 @dataclass
+class TradeRecommendation:
+    """
+    Actionable trading recommendation derived from the full analysis.
+
+    action      : "Accumulate" | "Accumulate on Pullback" | "Watch" | "Avoid"
+                  "Speculative Turnaround" | "Defensive Hold"
+    entry_type  : "market" | "limit" | "watch" | "avoid"
+    limit_price : target entry price for limit orders (None for market)
+    limit_wait_days : calendar days to keep the limit order alive
+    horizon_label   : "medium (3\u201312 months)" | "long (1\u20135 years)"
+    hold_months     : suggested maximum holding period in months
+    target_price    : profit-take price
+    stop_price      : hard stop-loss price
+    rationale       : list of human-readable reasons
+    """
+    action: str                       # see docstring above
+    entry_type: str                   # "market" | "limit" | "watch" | "avoid"
+    horizon_label: str = ""           # "medium (3\u201312 months)" | "long (1\u20135 years)"
+    hold_months: Optional[int] = None
+    limit_price: Optional[float] = None
+    limit_wait_days: Optional[int] = None
+    target_price: Optional[float] = None
+    stop_price: Optional[float] = None
+    rationale: list[str] = field(default_factory=list)
+
+
+@dataclass
 class AnalysisResult:
     ticker: str
     company_type: CompanyType
@@ -91,6 +118,7 @@ class AnalysisResult:
     )
     config_version: str = ""   # version of scoring thresholds/weights used
     fair_value: Optional[FairValueResult] = None   # intrinsic value estimate
+    trade_rec: Optional[TradeRecommendation] = None  # actionable trade recommendation
 
 
 # ---------------------------------------------------------------------------
@@ -200,27 +228,177 @@ def _check_stop_factors(
         ))
 
     # 2. Extreme overvaluation
+    # Only flag when forward P/E is also elevated or unavailable.
+    # Trailing P/E > 100 is often a GAAP artefact: acquisition amortisation,
+    # impairment charges, milestone payments — all inflate trailing P/E without
+    # indicating true overvaluation (e.g. ABBV post-Allergan, pharma M&A).
+    # If forward P/E ≤ 30, analysts already price in the recovery → not a stop.
     if nd.pe_trailing is not None and nd.pe_trailing > 100:
+        fwd_pe_ok = (nd.pe_forward is not None
+                     and math.isfinite(nd.pe_forward)
+                     and nd.pe_forward <= 30)
+        if not fwd_pe_ok:
+            factors.append(StopFactor(
+                name="Extreme Valuation",
+                description=(
+                    f"Trailing P/E = {nd.pe_trailing:.0f} — extremely overvalued"
+                    + (f" (forward P/E = {nd.pe_forward:.1f} also elevated)"
+                       if nd.pe_forward is not None else " (no forward P/E available)")
+                ),
+                severity="warning",
+            ))
+
+    # 3. Very high leverage — skipped entirely for Financial sector
+    # Also skipped when equity is thin relative to total assets (< 5%):
+    # post-M&A goodwill and acquisition amortisation mechanically destroy
+    # book equity without indicating real financial distress (ABBV, ORCL).
+    # In such cases D/E is unreliable — use Net Debt/EBITDA or interest
+    # coverage instead (future enhancement).
+    if company_type not in _DE_STOP_EXEMPT:
+        # Check equity reliability: equity / total_assets
+        last_eq = next((v for v in reversed(nd.equity_annual) if math.isfinite(v)), None)
+        last_ta = next((v for v in reversed(nd.total_assets_annual) if math.isfinite(v)), None)
+        thin_equity = (
+            last_eq is not None
+            and last_ta is not None
+            and last_ta > 0
+            and (last_eq <= 0 or last_eq / last_ta < 0.05)
+        )
+        de_threshold = _DE_CRITICAL_THRESHOLD.get(company_type, _DE_CRITICAL_DEFAULT)
+        if recent_de and recent_de[-1] > de_threshold:
+            if thin_equity:
+                # Equity is too small / negative to make D/E meaningful
+                factors.append(StopFactor(
+                    name="Thin Equity",
+                    description=(
+                        f"Equity = {last_eq/1e9:.1f}B is {last_eq/last_ta*100:.1f}% of assets — "
+                        "D/E ratio unreliable (post-M&A goodwill or accumulated losses); "
+                        "verify debt service capacity via EBITDA/FCF"
+                    ),
+                    severity="warning",
+                ))
+            else:
+                factors.append(StopFactor(
+                    name="High Debt",
+                    description=(
+                        f"Debt-to-Equity = {recent_de[-1]:.1f} — "
+                        f"exceeds threshold {de_threshold:.0f}x for {company_type.value}"
+                    ),
+                    severity="critical",
+                ))
+
+    # 4a. Accounting distortion: trailing P/E >> forward P/E
+    # Common in pharma after acquisitions (ABBV, PFE), companies with impairments,
+    # or one-off charges. Trailing P/E becomes misleading — forward P/E is anchored
+    # to normalised earnings and is the more reliable signal.
+    # Trigger: pe_trailing > 3× pe_forward AND pe_forward < 25.
+    _pe_t = nd.pe_trailing
+    _pe_f = nd.pe_forward
+    if (
+        _pe_t is not None and math.isfinite(_pe_t) and _pe_t > 0
+        and _pe_f is not None and math.isfinite(_pe_f) and _pe_f > 0
+        and _pe_t > 3.0 * _pe_f and _pe_f < 25
+    ):
         factors.append(StopFactor(
-            name="Extreme Valuation",
-            description=f"Trailing P/E = {nd.pe_trailing:.0f} — extremely overvalued",
+            name="Accounting Distortion (P/E)",
+            description=(
+                f"Trailing P/E={_pe_t:.0f} vs forward P/E={_pe_f:.1f} — "
+                "large divergence suggests one-off charges, acquisition amortisation "
+                "or impairments; trailing P/E excluded from valuation scoring"
+            ),
             severity="warning",
         ))
 
-    # 3. Very high leverage — skipped entirely for Financial sector
-    if company_type not in _DE_STOP_EXEMPT:
-        de_threshold = _DE_CRITICAL_THRESHOLD.get(company_type, _DE_CRITICAL_DEFAULT)
-        if recent_de and recent_de[-1] > de_threshold:
+    # 4b. Cashflow anomaly: TTM OCF deviates sharply from 5yr historical average.
+    # Detected in normalizer; surfaced here as a stop factor to alert the
+    # engine, reduce DCF confidence, and flag to the AI layer.
+    if nd.cashflow_anomaly and nd.cashflow_anomaly_detail:
+        factors.append(StopFactor(
+            name="Cashflow Anomaly",
+            description=nd.cashflow_anomaly_detail,
+            severity="warning",
+        ))
+
+    # 4. Valuation stretched: high P/E, high PEG, and valuation block confirms it.
+    # This is distinct from Extreme Valuation (P/E > 100): captures the case where
+    # a quality company is priced to perfection — P/E > 30, PEG > 3, and the
+    # valuation scoring block independently scores the stock as expensive (< 3/10).
+    # All three conditions must hold to avoid false positives on fast-growers.
+    val_block = blocks.get("valuation")
+    val_score = val_block.score if val_block is not None else 5.0
+    pe_t = nd.pe_trailing
+    pe_f = nd.pe_forward
+    # Compute PEG from pe_forward and recent eps growth
+    _eps_g_vals = [v for v in nd.eps_growth_annual[-3:] if math.isfinite(v) and v > 0]
+    _peg_check: float | None = None
+    if pe_f is not None and math.isfinite(pe_f) and pe_f > 0 and _eps_g_vals:
+        _peg_check = pe_f / (sum(_eps_g_vals) / len(_eps_g_vals))
+    if (
+        pe_t is not None and math.isfinite(pe_t) and pe_t > 30
+        and (_peg_check is not None and _peg_check > 3.0)
+        and val_score < 3.0
+    ):
+        factors.append(StopFactor(
+            name="Valuation Stretched",
+            description=(
+                f"P/E={pe_t:.0f}, PEG={_peg_check:.1f} — priced for perfection; "
+                "valuation block confirms limited upside at current price"
+            ),
+            severity="warning",
+        ))
+
+    # 5. Overheating / overextension warnings.
+    # These do NOT block a buy — they are signals that entry risk is elevated.
+    # P/S > 25: any sector at this multiple is priced for extraordinary perfection.
+    # MA50 > 20% above price: technically overextended, mean-reversion risk.
+    # Beta > 2.0: high-volatility name — drawdowns can be severe.
+
+    # P/S overheating
+    _last_rev = nd.ttm_revenue
+    if _last_rev is None or not math.isfinite(_last_rev):
+        _last_rev = next((v for v in reversed(nd.revenue_annual) if math.isfinite(v) and v > 0), None)
+    if nd.market_cap and math.isfinite(nd.market_cap) and _last_rev and _last_rev > 0:
+        _ps = nd.market_cap / _last_rev
+        if _ps > 25:
             factors.append(StopFactor(
-                name="High Debt",
+                name="Premium Valuation (P/S)",
                 description=(
-                    f"Debt-to-Equity = {recent_de[-1]:.1f} — "
-                    f"exceeds threshold {de_threshold:.0f}x for {company_type.value}"
+                    f"P/S ratio {_ps:.1f}x — priced for extraordinary growth; "
+                    "any slowdown or margin miss could trigger sharp re-rating"
                 ),
-                severity="critical",
+                severity="warning",
             ))
 
-    # 4. Sharply deteriorating margins into deep negative
+    # MA50 overextension
+    _price = nd.current_price
+    if _price and math.isfinite(_price) and len(nd.close_prices) >= 50:
+        _ma50 = sum(nd.close_prices[-50:]) / 50
+        if _ma50 > 0 and _price > _ma50 * 1.20:
+            _ext = (_price / _ma50 - 1) * 100
+            factors.append(StopFactor(
+                name="Technically Overextended",
+                description=(
+                    f"Price {_ext:.0f}% above MA50 — overextended; "
+                    "elevated mean-reversion risk in short term"
+                ),
+                severity="warning",
+            ))
+
+    # High beta warning for expensive stocks
+    _beta = nd.beta
+    if (_beta is not None and math.isfinite(_beta) and _beta > 2.0
+            and nd.pe_trailing is not None and nd.pe_trailing > 40):
+        factors.append(StopFactor(
+            name="High Volatility at Premium Valuation",
+            description=(
+                f"Beta {_beta:.1f} with P/E {nd.pe_trailing:.0f} — "
+                "high-beta name at expensive valuation; "
+                "drawdowns of 30-50% are historically common"
+            ),
+            severity="warning",
+        ))
+
+    # 6. Sharply deteriorating margins into deep negative
     margins = [x for x in nd.net_margin_annual[-3:] if not math.isnan(x)]
     if len(margins) == 3 and margins[2] < margins[1] < margins[0] and margins[2] < -10:
         factors.append(StopFactor(
@@ -229,7 +407,7 @@ def _check_stop_factors(
             severity="warning",
         ))
 
-    # 5. Technical breakdown
+    # 7. Technical breakdown
     tech = blocks.get("technical")
     if tech is not None and tech.score < 3.0:
         factors.append(StopFactor(
@@ -238,7 +416,7 @@ def _check_stop_factors(
             severity="warning",
         ))
 
-    # 6. Low liquidity — measured in dollar ADV (avg_volume × current_price)
+    # 8. Low liquidity — measured in dollar ADV (avg_volume × current_price)
     # Share-count thresholds are misleading: 100k shares of a $2 stock ($200k/day)
     # is far less liquid than 100k shares of a $500 stock ($50M/day).
     vol = nd.avg_volume
@@ -278,6 +456,265 @@ def _check_stop_factors(
 
 
 # ---------------------------------------------------------------------------
+# Trade recommendation
+# ---------------------------------------------------------------------------
+
+def _compute_trade_recommendation(
+    nd: NormalisedData,
+    overall_score: float,
+    horizon: HorizonScores,
+    stop_factors: list[StopFactor],
+    blocks: dict[str, BlockScore],
+    fv: Optional[FairValueResult],
+    company_type: CompanyType = CompanyType.OTHER,
+) -> TradeRecommendation:
+    """
+    Convert scoring results into a concrete trading recommendation.
+
+    Actions
+    -------
+    Accumulate            — qualifies fully at current price (market order)
+    Accumulate on Pullback — good stock, but small discount improves R/R
+    Watch                 — score 55–60 or gate fails; monitor for entry
+    Avoid                 — score < 40 or critical risk
+    Speculative Turnaround — TURNAROUND type with recovery thesis, score 45–60
+    Defensive Hold        — DIVIDEND_DEFENSIVE / stable with score 55–65
+    """
+    price = nd.current_price
+    rationale: list[str] = []
+
+    # ── Skip conditions ──────────────────────────────────────────────────
+    has_critical = any(sf.severity == "critical" for sf in stop_factors)
+    if price is None or not math.isfinite(price) or price <= 0:
+        return TradeRecommendation(action="Avoid", entry_type="avoid",
+                                   rationale=["Current price unavailable"])
+    if has_critical:
+        reasons = [sf.description for sf in stop_factors if sf.severity == "critical"]
+        return TradeRecommendation(action="Avoid", entry_type="avoid",
+                                   rationale=["Critical risk factor: " + r for r in reasons])
+    if overall_score < 60:
+        # Below entry threshold — determine label based on context and company_type
+        quality_bs       = blocks.get("quality")
+        eps_growth_score = (quality_bs.breakdown.get("eps_growth", 0) if quality_bs else 0)
+        quality_score_val = (quality_bs.score if quality_bs else 0)
+
+        # Speculative Turnaround: TURNAROUND type OR strong EPS recovery in weak business
+        turnaround_hint = (
+            company_type == CompanyType.TURNAROUND
+            or (eps_growth_score >= 7.0 and quality_score_val < 4.5)
+        )
+        if 45 <= overall_score < 60 and turnaround_hint:
+            return TradeRecommendation(
+                action="Speculative Turnaround",
+                entry_type="watch",
+                rationale=[
+                    f"Score {overall_score:.0f}/100 — below entry threshold; recovery thesis possible",
+                    "High EPS momentum in a business with weak overall fundamentals — confirm margin stabilisation before entry",
+                ],
+            )
+
+        # Defensive Hold: stable income-oriented types near the entry threshold
+        _DEFENSIVE_TYPES = frozenset({
+            CompanyType.DIVIDEND_DEFENSIVE,
+            CompanyType.PHARMA,
+            CompanyType.FINANCIAL,
+            CompanyType.MATURE_TECH,
+        })
+        if 55 <= overall_score < 60 and company_type in _DEFENSIVE_TYPES:
+            return TradeRecommendation(
+                action="Defensive Hold",
+                entry_type="watch",
+                rationale=[
+                    f"Score {overall_score:.0f}/100 — approaching entry threshold",
+                    "Stable business; hold if already in portfolio, but not a compelling new entry at current price",
+                ],
+            )
+
+        if overall_score >= 55:
+            return TradeRecommendation(
+                action="Watch",
+                entry_type="watch",
+                rationale=[f"Score {overall_score:.0f}/100 — approaching entry threshold; monitor for improvement"],
+            )
+        if overall_score < 40:
+            return TradeRecommendation(
+                action="Avoid",
+                entry_type="avoid",
+                rationale=[f"Score {overall_score:.0f}/100 — weak fundamentals, no entry case"],
+            )
+        # 40–55: neutral watchlist
+        return TradeRecommendation(
+            action="Watch",
+            entry_type="watch",
+            rationale=[f"Score {overall_score:.0f}/100 — below minimum threshold (60); keep on watchlist"],
+        )
+
+    # ── Horizon selection ────────────────────────────────────────────────
+    # Prefer long when quality is high AND long score meaningfully exceeds medium.
+    quality_score = blocks["quality"].score if "quality" in blocks else 5.0
+    prefer_long = (
+        horizon.long > horizon.medium + 4
+        or (quality_score >= 8.0 and horizon.long >= horizon.medium)
+    )
+    if prefer_long:
+        horizon_label = "long (1\u20135 years)"
+        hold_months   = 24
+    else:
+        horizon_label = "medium (3\u201312 months)"
+        hold_months   = 9
+
+    # ── Target price (exit) ──────────────────────────────────────────────
+    # Use analyst consensus median if available; fall back to fair_value × uplift.
+    analyst_target = nd.analyst_target_median
+    fv_price = fv.fair_value if fv is not None else None
+
+    if analyst_target and math.isfinite(analyst_target) and analyst_target > price:
+        target_price = analyst_target
+        rationale.append(f"Exit target: analyst consensus ${analyst_target:.2f}")
+    elif fv_price and math.isfinite(fv_price):
+        uplift = 1.20 if prefer_long else 1.12
+        target_price = max(fv_price, price * uplift)   # at least the uplift
+        rationale.append(f"Exit target: fair value ${fv_price:.2f} + buffer")
+    else:
+        uplift = 1.20 if prefer_long else 1.12
+        target_price = price * uplift
+        rationale.append(f"Exit target: {(uplift-1)*100:.0f}% return target (no fair value available)")
+
+    # Cap upside at 55% for long, 35% for medium (avoid implausible targets)
+    max_upside = 1.55 if prefer_long else 1.35
+    target_price = min(target_price, price * max_upside)
+
+    # ── Stop loss ────────────────────────────────────────────────────────
+    # Use MA200 as natural support when available; otherwise hard % stop.
+    ma200: Optional[float] = None
+    if len(nd.close_prices) >= 200:
+        ma200 = sum(nd.close_prices[-200:]) / 200
+    elif len(nd.close_prices) >= 50:
+        ma200 = sum(nd.close_prices) / len(nd.close_prices)   # rough proxy
+
+    hard_stop_pct = 0.87 if prefer_long else 0.89   # 11–13% hard stop
+    if ma200 and math.isfinite(ma200) and ma200 < price * 0.99:
+        # Stop just below MA200 (3% buffer) but no worse than hard stop
+        stop_price = max(ma200 * 0.97, price * hard_stop_pct)
+        rationale.append(f"Stop loss: below MA200 (${ma200:.2f}) at ${stop_price:.2f}")
+    else:
+        stop_price = price * hard_stop_pct
+        rationale.append(f"Stop loss: {(1 - hard_stop_pct)*100:.0f}% hard stop at ${stop_price:.2f}")
+
+    # ── Buy Now vs Buy on Limit ──────────────────────────────────────────
+    # Buy Now: score ≥ 70 AND current price is within 5% above fair value
+    # (or no fair value available and score ≥ 75 — model is confident)
+    if fv_price and math.isfinite(fv_price):
+        price_vs_fv_pct = (price - fv_price) / fv_price * 100  # positive = overpriced
+    else:
+        price_vs_fv_pct = 0.0  # unknown — treat as neutral
+
+    # Entry quality gate — additional filters that must pass for BUY NOW.
+    # Even a high-scoring stock fails the gate if:
+    #   • technical score < 5: bearish structure (below MA200, downtrend)
+    #   • risk score < 5: too risky at current price
+    #   • price > 15% above MA50: extended / overheated short-term
+    #   • R/R < 1.5: not enough upside relative to stop distance
+    tech_score  = blocks["technical"].score  if "technical"  in blocks else 5.0
+    risk_score  = blocks["risk"].score        if "risk"        in blocks else 5.0
+
+    ma50: float | None = None
+    if len(nd.close_prices) >= 50:
+        ma50 = sum(nd.close_prices[-50:]) / 50
+
+    price_above_ma50_pct = ((price / ma50) - 1) * 100 if ma50 else 0.0
+    extended_vs_ma50 = price_above_ma50_pct > 15.0
+
+    # Compute prospective R/R at current price (before deciding entry type)
+    _rr_ratio = abs((target_price - price) / (price - stop_price)) if price > stop_price else 0.0
+
+    gate_failures: list[str] = []
+    if tech_score < 5.0:
+        gate_failures.append(f"technical score {tech_score:.1f} < 5 (bearish structure or weak momentum)")
+    if risk_score < 5.0:
+        gate_failures.append(f"risk score {risk_score:.1f} < 5 (elevated risk at current price)")
+    if extended_vs_ma50:
+        gate_failures.append(f"price {price_above_ma50_pct:.0f}% above MA50 — extended, wait for pullback")
+    if _rr_ratio < 1.5:
+        gate_failures.append(f"R/R {_rr_ratio:.1f} : 1 below minimum 1.5 : 1")
+
+    if overall_score >= 70 and price_vs_fv_pct <= 5.0 and not gate_failures:
+        rationale.insert(0, f"Score {overall_score:.0f}/100 — qualifies for immediate entry")
+        if fv_price:
+            rationale.insert(1, f"Price ${price:.2f} within {abs(price_vs_fv_pct):.1f}% of fair value ${fv_price:.2f}")
+        return TradeRecommendation(
+            action="Accumulate",
+            entry_type="market",
+            horizon_label=horizon_label,
+            hold_months=hold_months,
+            limit_price=None,
+            limit_wait_days=None,
+            target_price=round(target_price, 2),
+            stop_price=round(stop_price, 2),
+            rationale=rationale,
+        )
+
+    # Buy on Limit: determine the limit price
+    # If gate failed, explain why BUY NOW was downgraded
+    if gate_failures and overall_score >= 70 and price_vs_fv_pct <= 5.0:
+        rationale.insert(0, f"Score {overall_score:.0f}/100 — good, but entry gate not passed:")
+        for gf in gate_failures:
+            rationale.insert(1, f"  ✗ {gf}")
+    if fv_price and math.isfinite(fv_price) and fv_price < price:
+        # Stock is above fair value — wait for pullback to fair value
+        limit_price = round(fv_price, 2)
+        rationale.insert(0, f"Price ${price:.2f} is {price_vs_fv_pct:.1f}% above fair value — wait for pullback")
+    else:
+        # Stock is at/below fair value but score < 70 — buy on 3–5% dip
+        dip_pct = 0.97 if overall_score >= 65 else 0.95
+        limit_price = round(price * dip_pct, 2)
+        rationale.insert(0, f"Score {overall_score:.0f}/100 — good but not exceptional; wait for {(1-dip_pct)*100:.0f}% dip")
+
+    # If limit is more than 15% below current price it won't fill within weeks —
+    # treat as Skip with an "interest zone" note rather than a phantom limit order.
+    pct_away = (price - limit_price) / price * 100
+    if pct_away > 15:
+        return TradeRecommendation(
+            action="Watch",
+            entry_type="watch",
+            rationale=[
+                f"Current price ${price:.2f} is {pct_away:.0f}% above entry zone ${limit_price:.2f}",
+                "Gap too large for a short-term limit order — watch until price approaches the zone",
+            ],
+        )
+
+    # How long to keep the limit order
+    pct_away = (price - limit_price) / price * 100
+    if pct_away < 3:
+        wait_days = 7
+    elif pct_away < 5:
+        wait_days = 10
+    elif pct_away < 8:
+        wait_days = 14
+    else:
+        wait_days = 21
+
+    # Adjust stop for limit entry
+    stop_price_limit = max(limit_price * hard_stop_pct, stop_price * 0.97)
+    if ma200 and math.isfinite(ma200) and ma200 < limit_price * 0.99:
+        stop_price_limit = max(ma200 * 0.97, limit_price * hard_stop_pct)
+
+    rationale.append(f"Limit {pct_away:.1f}% below current price — keep order {wait_days} calendar days")
+
+    return TradeRecommendation(
+        action="Accumulate on Pullback",
+        entry_type="limit",
+        horizon_label=horizon_label,
+        hold_months=hold_months,
+        limit_price=limit_price,
+        limit_wait_days=wait_days,
+        target_price=round(target_price, 2),
+        stop_price=round(stop_price_limit, 2),
+        rationale=rationale,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Core analysis function (accepts pre-built NormalisedData)
 # ---------------------------------------------------------------------------
 
@@ -290,9 +727,20 @@ def analyse_nd(nd: NormalisedData) -> AnalysisResult:
     cr = classify(nd)
     bm = get_benchmark(cr.company_type)
 
+    # Apply sector-fit DQ override now that company_type is known
+    _UNSUPPORTED_FIT = frozenset({CompanyType.FINANCIAL})
+    _ADAPTED_FIT     = frozenset({CompanyType.CYCLICAL, CompanyType.PHARMA, CompanyType.TURNAROUND})
+    if cr.company_type in _UNSUPPORTED_FIT:
+        nd.dq_sector_fit = "unsupported"
+        nd.dq_cashflow   = "sector_n_a"
+    elif cr.company_type in _ADAPTED_FIT:
+        nd.dq_sector_fit = "adapted"
+    else:
+        nd.dq_sector_fit = "native"
+
     blocks: dict[str, BlockScore] = {
-        "quality":   score_quality(nd, bm),
-        "valuation": score_valuation(nd, bm),
+        "quality":   score_quality(nd, bm, cr.company_type),
+        "valuation": score_valuation(nd, bm, cr.company_type),
         "technical": score_technical(nd),
         "risk":      score_risk(nd, bm, cr.company_type),
         "style_fit": score_style_fit(nd, bm),
@@ -327,6 +775,16 @@ def analyse_nd(nd: NormalisedData) -> AnalysisResult:
 
     fair_value = compute_fair_value(nd, cr.company_type)
 
+    trade_rec = _compute_trade_recommendation(
+        nd=nd,
+        overall_score=overall,
+        horizon=HorizonScores(short=short, medium=medium, long=long_),
+        stop_factors=stop_factors,
+        blocks=blocks,
+        fv=fair_value,
+        company_type=cr.company_type,
+    )
+
     return AnalysisResult(
         ticker=nd.ticker,
         company_type=cr.company_type,
@@ -341,6 +799,7 @@ def analyse_nd(nd: NormalisedData) -> AnalysisResult:
         horizon_decisions=horizon_decisions,
         config_version=current_version(),
         fair_value=fair_value,
+        trade_rec=trade_rec,
     )
 
 
