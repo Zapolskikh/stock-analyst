@@ -68,6 +68,41 @@ _PEG_TARGET = 1.5
 # Minimum analysts required for analyst consensus model
 _MIN_ANALYSTS = 3
 
+# Types where PEG is unreliable and should be skipped:
+#   FINANCIAL — bank/insurance EPS is dominated by provisions & one-offs,
+#               not "growth" in the Lynch sense; P/E multiples don't scale
+#               with EPS growth the way they do for operating companies.
+_PEG_SKIP_TYPES: frozenset[CompanyType] = frozenset({
+    CompanyType.FINANCIAL,
+})
+
+# Maximum EPS growth rate (%) used for P/E derivation in PEG model.
+# Cyclicals and defensives are mean-reverting — a boom year shouldn't
+# justify a 40%+ P/E; cap growth assumption conservatively by type.
+_PEG_MAX_GROWTH: dict[CompanyType, float] = {
+    CompanyType.HYPERGROWTH_TECH:   40.0,   # high growth is real
+    CompanyType.MATURE_TECH:        30.0,
+    CompanyType.PHARMA:             30.0,
+    CompanyType.CYCLICAL:           18.0,   # boom years overstate trend
+    CompanyType.DIVIDEND_DEFENSIVE: 15.0,   # slow-and-steady
+    CompanyType.TURNAROUND:         25.0,
+    CompanyType.OTHER:              25.0,
+}
+
+# Maximum fair P/E derived by PEG formula, capped by type.
+# Prevents PEG from awarding growth-stock multiples to mature/defensive names.
+# Example: MATURE_TECH with 30% growth → PEG gives 45x — unrealistic for IT services.
+# These caps are based on long-run sector median forward P/E + modest premium.
+_PEG_MAX_PE: dict[CompanyType, float] = {
+    CompanyType.HYPERGROWTH_TECH:   60.0,   # growth premium allowed
+    CompanyType.MATURE_TECH:        22.0,   # sector median ~13x + modest premium
+    CompanyType.PHARMA:             25.0,
+    CompanyType.CYCLICAL:           18.0,   # cyclicals rarely sustain high P/E
+    CompanyType.DIVIDEND_DEFENSIVE: 20.0,
+    CompanyType.TURNAROUND:         20.0,
+    CompanyType.OTHER:              22.0,
+}
+
 # Base weights per model [dcf, analyst_consensus, peg_eps]
 # Higher analyst weight for types where analyst coverage is rich & reliable
 _BASE_WEIGHTS: dict[CompanyType, tuple[float, float, float]] = {
@@ -127,6 +162,14 @@ def _last_valid(values: list[float]) -> float:
     return float("nan")
 
 
+def _last_positive(values: list[float]) -> float:
+    """Like _last_valid but also skips zeros (e.g. SEC data with 0-filled gaps)."""
+    for v in reversed(values):
+        if math.isfinite(v) and v > 0:
+            return v
+    return float("nan")
+
+
 def _recent_mean(values: list[float], n: int = 3) -> float | None:
     tail = [v for v in values[-n:] if math.isfinite(v)]
     return sum(tail) / len(tail) if tail else None
@@ -134,6 +177,38 @@ def _recent_mean(values: list[float], n: int = 3) -> float | None:
 
 def _clamp(val: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, val))
+
+
+def _median(values: list[float]) -> float:
+    """Median of a non-empty list of floats."""
+    s = sorted(values)
+    n = len(s)
+    mid = n // 2
+    return s[mid] if n % 2 == 1 else (s[mid - 1] + s[mid]) / 2
+
+
+def _fcf_reliability(nd: NormalisedData) -> float:
+    """
+    DCF reliability score in [0.3, 1.0] based on FCF stability (CoV).
+
+    CoV = std_dev / mean of last 5yr positive FCF values.
+    Low CoV (stable, predictable FCF) → high score → DCF gets more weight.
+    High CoV (volatile/cyclical FCF) → low score → DCF gets less weight.
+
+    Examples:
+      CTSH (CoV≈0.12) → reliability≈0.88 — steady IT services, DCF reliable
+      CMI  (CoV≈0.56) → reliability≈0.44 — cyclical capex spikes, less reliable
+      ETN  (CoV≈0.30) → reliability≈0.70 — moderate volatility
+    """
+    vals = [v for v in nd.fcf_annual[-5:] if math.isfinite(v) and v > 0]
+    if len(vals) < 3:
+        return 0.5  # insufficient history → neutral reliability
+    mu = sum(vals) / len(vals)
+    if mu <= 0:
+        return 0.5
+    variance = sum((v - mu) ** 2 for v in vals) / len(vals)
+    cov = variance ** 0.5 / mu
+    return max(0.3, 1.0 - cov)  # CoV=0.0 → 1.0;  CoV≥0.7 → 0.3
 
 
 # ---------------------------------------------------------------------------
@@ -145,33 +220,62 @@ def _model_dcf(nd: NormalisedData, assumptions: list[str]) -> float | None:
     Two-stage DCF discounting free cash flow.
     Returns fair value per share, or None if data is insufficient.
     """
-    # Base FCF
-    fcf_base = nd.ttm_fcf
-    if fcf_base is None or not math.isfinite(fcf_base):
-        fcf_base = _last_valid(nd.fcf_annual)
-    if not math.isfinite(fcf_base) or fcf_base <= 0:
+    # Base FCF: median of last 5yr positive values (robust to outliers).
+    # Median avoids distortions from cyclical peak years, acquisition-year FCF
+    # drops, and single-year capex spikes (e.g. CMI: $279M→$2.75B; VRTX: -$790M).
+    # Requires ≥ 3 positive FCF years; falls back to TTM otherwise.
+    fcf_pos = [v for v in nd.fcf_annual[-5:] if math.isfinite(v) and v > 0]
+    if len(fcf_pos) >= 3:
+        fcf_base = _median(fcf_pos)
+    else:
+        fcf_base = nd.ttm_fcf
+        if fcf_base is None or not math.isfinite(fcf_base):
+            fcf_base = _last_valid(nd.fcf_annual)
+    if fcf_base is None or not math.isfinite(fcf_base) or fcf_base <= 0:
         return None  # negative or missing FCF → model skipped
 
-    # Shares outstanding
-    shares = _last_valid(nd.shares_outstanding_annual)
+    # Shares outstanding — use last *positive* value; fall back to mkt_cap/price
+    shares = _last_positive(nd.shares_outstanding_annual)
     if not math.isfinite(shares) or shares <= 0:
-        return None
+        # Fallback: estimate from market cap and current price
+        if (
+            nd.market_cap
+            and math.isfinite(nd.market_cap)
+            and nd.current_price
+            and nd.current_price > 0
+        ):
+            shares = nd.market_cap / nd.current_price
+        else:
+            return None
 
     # Discount rate via CAPM
     beta = nd.beta if (nd.beta is not None and math.isfinite(nd.beta)) else 1.0
     discount_rate = _clamp(_RISK_FREE + beta * _ERP, _MIN_DISCOUNT, _MAX_DISCOUNT)
 
-    # FCF growth rate: average of last 3y FCF growth → clamp
+    # FCF growth rate: endpoint CAGR over the positive FCF history.
+    # CAGR (first → last positive value) is more robust than avg(YoY) because:
+    #   - avg(YoY) is inflated by bounce-back years after a trough
+    #     (AMT: trough year $1.82B → recovery years inflate avg to 29.8%, CAGR = 2.4%)
+    #   - cyclical companies with $279M→$2.75B swings give avg(YoY) = 276% (CMI)
+    #     while CAGR = 11.9% correctly reflects the underlying business growth
+    # If only 1 positive year, fall back to revenue growth as proxy.
     fcf_vals = [v for v in nd.fcf_annual if math.isfinite(v) and v > 0]
     if len(fcf_vals) >= 2:
-        yoy = [(fcf_vals[i] / fcf_vals[i - 1] - 1) for i in range(1, len(fcf_vals))]
-        g1_raw = sum(yoy[-3:]) / len(yoy[-3:])
+        n_years = len(fcf_vals) - 1
+        g1_raw = (fcf_vals[-1] / fcf_vals[0]) ** (1 / n_years) - 1
     else:
-        # Fall back to revenue growth as proxy
         g1_raw_rev = _recent_mean(nd.revenue_growth_annual, 3)
         g1_raw = (g1_raw_rev / 100) if g1_raw_rev is not None else 0.08
 
-    g1 = _clamp(g1_raw, -0.05, 0.30)  # Stage-1 growth per year
+    # Fundamental cap: FCF growth can't sustainably exceed revenue growth × 1.3.
+    # Margin expansion is real but bounded — prevents extrapolating above-trend FCF
+    # for mature industrials (ETN: CAGR 22%, rev ~8% → cap 10.4%).
+    # Not applied when revenue is shrinking (negative rev_g3 would invert the cap).
+    rev_g3 = _recent_mean(nd.revenue_growth_annual, 3)
+    if rev_g3 is not None and math.isfinite(rev_g3) and rev_g3 > 0:
+        g1_raw = min(g1_raw, rev_g3 / 100 * 1.3)
+
+    g1 = _clamp(g1_raw, -0.05, 0.30)  # Stage-1 growth per year, hard caps
 
     # Stage 1: years 1–5
     pv_sum = 0.0
@@ -203,8 +307,10 @@ def _model_dcf(nd: NormalisedData, assumptions: list[str]) -> float | None:
     fair_equity = pv_sum + pv_tv + net_cash
     fair_per_share = fair_equity / shares
 
+    base_label = "median" if len(fcf_pos) >= 3 else "TTM"
     assumptions.append(
-        f"DCF: g₁={g1*100:.1f}%/yr, r={discount_rate*100:.1f}%, "
+        f"DCF: base_FCF={base_label} ${fcf_base/1e9:.2f}B, "
+        f"g\u2081={g1*100:.1f}%/yr, r={discount_rate*100:.1f}%, "
         f"terminal_g={_TERMINAL_G*100:.0f}%, horizon=10yr"
     )
     return fair_per_share if fair_per_share > 0 else None
@@ -252,15 +358,39 @@ def _model_analyst_target(nd: NormalisedData, assumptions: list[str]) -> tuple[f
 # Model 3 — PEG-EPS (analyst forwardEps × growth-derived fair P/E)
 # ---------------------------------------------------------------------------
 
-def _model_peg_eps(nd: NormalisedData, assumptions: list[str]) -> float | None:
+def _model_peg_eps(
+    nd: NormalisedData,
+    company_type: CompanyType,
+    assumptions: list[str],
+) -> float | None:
     """
     PEG formula: fair_price = forwardEps × (eps_growth_pct × PEG_target)
-    
+
     Uses analyst consensus forwardEps from yfinance (not our own estimate).
     eps_growth derived from historical EPS series (or revenue growth as proxy).
-    
+
     Peter Lynch: PEG=1.0 is fair; we use 1.5 (institutional conservative standard).
+    Skipped for FINANCIAL types where EPS volatility makes PEG unreliable.
     """
+    if company_type in _PEG_SKIP_TYPES:
+        return None
+
+    # Skip if TTM EPS is not meaningful relative to price.
+    # |EPS_ttm / price| < 0.5% → P/E framework inapplicable: the company is
+    # near breakeven or in earnings transition (base-effect). In such cases,
+    # implied forward growth becomes astronomically large (e.g. DDOG: $0.46/$202
+    # = 0.23% → implied growth 517%), making any growth-based P/E meaningless.
+    _ttm_check = nd.ttm_eps_diluted
+    if _ttm_check is None or not math.isfinite(_ttm_check):
+        _ttm_check = _last_valid(nd.eps_diluted_annual)
+    if (
+        math.isfinite(_ttm_check)
+        and nd.current_price
+        and nd.current_price > 0
+        and abs(_ttm_check) / nd.current_price < 0.005
+    ):
+        return None
+
     # Prefer analyst consensus forwardEps (most accurate — not our estimate)
     fwd_eps = nd.forward_eps
     if fwd_eps is None or not math.isfinite(fwd_eps) or fwd_eps <= 0:
@@ -277,23 +407,75 @@ def _model_peg_eps(nd: NormalisedData, assumptions: list[str]) -> float | None:
         fwd_eps = ttm_eps * (1 + eps_g_clamped)
         source = "derived"
     else:
-        # EPS growth for fair P/E calculation (still need growth rate)
-        eps_g = _recent_mean(nd.eps_growth_annual, 3)
-        if eps_g is None:
-            eps_g = _recent_mean(nd.revenue_growth_annual, 3) or 8.0
+        # EPS growth for fair P/E calculation.
+        # Priority:
+        #   1. Implied forward growth = (forwardEps / ttm_eps - 1)
+        #      This is analyst-consensus-backed and forward-looking.
+        #      Critical for companies in temporary earnings slowdown where
+        #      trailing 3yr average is near zero but analysts see recovery.
+        #   2. Trailing 3yr avg EPS growth (historical, from SEC EDGAR)
+        #   3. Revenue growth proxy (last resort)
+        # We take the BLEND: 50% implied + 50% trailing when both are available,
+        # but if trailing ≤ 2% and implied > 5%, implied gets full weight —
+        # avoids stale-trailing-data distorting the estimate.
+        ttm_eps = nd.ttm_eps_diluted
+        if ttm_eps is None or not math.isfinite(ttm_eps):
+            ttm_eps = _last_valid(nd.eps_diluted_annual)
+
+        implied_g: float | None = None
+        if (
+            math.isfinite(ttm_eps)
+            and ttm_eps > 0
+            and fwd_eps > ttm_eps * 0.5  # sanity: forwardEps shouldn't be < 50% TTM
+        ):
+            implied_g = (fwd_eps / ttm_eps - 1) * 100  # e.g. 18.2% for CTSH
+            # Implied growth > 100% = base effect / earnings inflection, not trend.
+            # Don't feed explosive base-effect numbers into P/E derivation.
+            if implied_g > 100.0:
+                implied_g = None
+
+        trailing_g = _recent_mean(nd.eps_growth_annual, 3)
+        if trailing_g is None:
+            trailing_g = _recent_mean(nd.revenue_growth_annual, 3)
+
+        if implied_g is not None and trailing_g is not None:
+            if trailing_g <= 2.0 and implied_g > 5.0:
+                # Trailing is stale/flat; analysts see recovery → use implied
+                eps_g = implied_g
+            else:
+                # Normal blend: 50/50 implied vs trailing
+                eps_g = implied_g * 0.5 + trailing_g * 0.5
+        elif implied_g is not None:
+            eps_g = implied_g
+        elif trailing_g is not None:
+            eps_g = trailing_g
+        else:
+            eps_g = 8.0  # generic fallback
+
         source = "yfinance consensus"
 
     if fwd_eps <= 0:
         return None
 
-    # EPS growth clamped to [2%, 40%] for P/E derivation
-    # Below 2% → growth stock formula breaks down; above 40% → unsustainable
-    eps_g_for_pe = _clamp(eps_g, 2.0, 40.0)
+    # EPS growth clamped to [2%, type-specific max] for P/E derivation
+    # Below 2% → growth stock formula breaks down
+    # Above type max → cyclical/defensive boom years overstate long-run trend
+    max_g = _PEG_MAX_GROWTH.get(company_type, 25.0)
+    eps_g_for_pe = _clamp(eps_g, 2.0, max_g)
 
-    # Fair P/E = growth_rate_pct × PEG_target
-    fair_pe = eps_g_for_pe * _PEG_TARGET
+    # Fair P/E = growth_rate_pct × PEG_target, capped by type-specific max P/E
+    # Prevents growth-stock multiples being applied to mature/defensive companies
+    max_pe = _PEG_MAX_PE.get(company_type, 22.0)
+    fair_pe = min(eps_g_for_pe * _PEG_TARGET, max_pe)
 
     fair_price = fwd_eps * fair_pe
+
+    # Reject if estimate exceeds 4× current price — too speculative.
+    # This handles cyclical/semiconductor peak-earnings cases where forwardEps
+    # is elevated and PEG formula produces implausibly high targets.
+    if nd.current_price and fair_price > nd.current_price * 4:
+        return None
+
     assumptions.append(
         f"PEG-EPS: fwd_EPS=${fwd_eps:.2f} ({source}), "
         f"g={eps_g_for_pe:.1f}%, PEG={_PEG_TARGET}, fair_P/E={fair_pe:.1f}x"
@@ -324,7 +506,7 @@ def compute_fair_value(
     # ── Run the three models ──────────────────────────────────────────────
     val_dcf = _model_dcf(nd, assumptions)
     val_analyst, analyst_confidence = _model_analyst_target(nd, assumptions)
-    val_peg = _model_peg_eps(nd, assumptions)
+    val_peg = _model_peg_eps(nd, company_type, assumptions)
 
     # Sanity cap: clip each estimate to [0.1×price, 10×price]
     lo, hi = price * 0.10, price * 10.0
@@ -345,6 +527,11 @@ def compute_fair_value(
 
     if val_dcf is None:
         w_dcf = 0.0
+    else:
+        # Scale DCF weight by FCF reliability (inverse of CoV).
+        # Volatile FCF (cyclicals, acquisitive companies) → less reliable DCF.
+        # Example: CTSH CoV≈0.12 → 0.88x;  CMI CoV≈0.56 → 0.44x;  ETN → 0.70x
+        w_dcf = w_dcf * _fcf_reliability(nd)
     if val_analyst is None:
         w_analyst = 0.0
     else:
