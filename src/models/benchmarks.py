@@ -22,10 +22,8 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Optional
 
 from src.classifier import CompanyType
-
 
 # ---------------------------------------------------------------------------
 # Threshold: (raw_value, score) breakpoint list + linear interpolation

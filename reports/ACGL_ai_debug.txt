@@ -1,0 +1,529 @@
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  ACGL  |  claude-haiku-4-5  |  2026-05-16 09:56:50
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1682 tokens
+  Output :    916 tokens
+  Total  :   2598 tokens
+  Cost   : $0.005010 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in English (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 sentences in English for a Telegram signal post>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "ACGL",
+  "as_of": "2026-05-16",
+  "company_type": "Financial",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 7.42,
+    "valuation": 6.46,
+    "technical": 5.15,
+    "risk": 7.55,
+    "style_fit": 10.0
+  },
+  "horizon_scores": {
+    "short": 64.8,
+    "medium": 69.6,
+    "long": 74.7
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "style_fit.revenue_growth_style=10.0",
+    "quality.eps_growth=10.0",
+    "quality.revenue_growth=10.0"
+  ],
+  "top_negative_features": [
+    "technical.relative_strength=2.4",
+    "technical.momentum_3m=3.1",
+    "risk.revenue_stability=3.7"
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 7.2,
+      "pe_forward": 9.5,
+      "pe_hist_avg": 8.3,
+      "ps_ttm": 1.9,
+      "analyst_target_median": 110.0,
+      "analyst_upside_pct": 17.0,
+      "analyst_count": 19,
+      "analyst_consensus": "buy"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 14.3,
+      "revenue_growth_3y_avg_pct": 28.0,
+      "gross_margin_pct": NaN,
+      "net_margin_pct": 22.1,
+      "roe_pct": 18.2
+    },
+    "technical": {
+      "price_vs_ma50_pct": -1.3,
+      "price_vs_ma200_pct": 0.8,
+      "atr_pct_daily": 2.19
+    },
+    "risk": {
+      "beta": 0.33,
+      "short_interest_pct_float": 2.3
+    }
+  },
+  "trade_action": "Avoid",
+  "current_price": 93.98
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": false,
+  "contradictions": [
+    "Action is 'Avoid' but horizon_scores all ≥ 64 (short: 64.8, medium: 69.6, long: 74.7) — these suggest acceptable-to-good risk-adjusted returns across all timeframes.",
+    "Action is 'Avoid' but analyst_consensus='buy' with 17% upside to median target (110.0) and 19 analyst coverage — contradicts bearish stance.",
+    "Action is 'Avoid' but valuation block (6.46) is acceptable, not weak; pe_trailing=7.2 is attractive relative to 3y revenue_growth_avg=28% and net_margin=22.1%.",
+    "Risk score is 7.55 (strong) with beta=0.33 (very low), no critical_stop_factors present — risk profile does not justify 'Avoid'.",
+    "Quality score is 7.42 (acceptable-to-strong) supported by revenue_growth_1y=14.3%, 3y_avg=28%, net_margin=22.1%, roe=18.2% — fundamentals are solid.",
+    "Top positive features (revenue_growth_style=10.0, eps_growth=10.0, revenue_growth=10.0) represent 3 major strengths, yet recommendation is 'Avoid'."
+  ],
+  "confidence": 0.15,
+  "narrative": "ACGL shows strong fundamentals (14% YoY revenue growth, 22% net margin, 18% ROE) with attractive valuation (P/E 7.2, 17% analyst upside) and low risk (beta 0.33); horizon scores of 65–75 across all timeframes contradict the 'Avoid' recommendation — likely a scoring engine miscalibration.",
+  "action": "watch",
+  "abstain": true
+}
+```
+
+**Reasoning for abstention and downgrade:**
+
+1. **Critical Score-Action Mismatch**: All three horizon scores (short 64.8, medium 69.6, long 74.7) are solidly in the acceptable-to-good range (≥60), yet the engine recommends "Avoid." This is internally inconsistent — a score of 65+ typically signals "watch" or "accumulate on pullback," not outright avoidance.
+
+2. **Fundamentals Do Not Support Avoidance**: 
+   - Revenue growth (14% YoY, 28% 3Y avg) is strong
+   - Net margin (22.1%) and ROE (18.2%) are both healthy
+   - P/E of 7.2 is cheap on a 28% 3Y growth base
+   - Analyst consensus is "buy" with +17% upside
+
+3. **Risk Is Low, Not High**:
+   - Risk score 7.55 is strong
+   - Beta of 0.33 is very defensive
+   - No critical_stop_factors present
+   - Short interest minimal at 2.3%
+
+4. **Technical Weakness Alone Insufficient**: While technical score (5.15) is weak (relative_strength=2.4, momentum_3m=3.1), the stock is not extended (price −1.3% vs MA50, +0.8% vs MA200). For a long-horizon analysis, weak technicals are expected and not a reason to "Avoid" if fundamentals and valuation are sound.
+
+**Verdict**: The engine appears to have over-weighted technical and revenue_stability negatives (3.7 risk score component), ignoring the stronger fundamentals and analyst validation. The "Avoid" recommendation cannot be justified by the underlying data. Recommend **"Watch"** pending clarification of the stop factors, or consider **"Accumulate on Pullback"** given the 17% analyst upside and defensive risk profile.
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  ACGL  |  claude-haiku-4-5  |  2026-05-16 11:31:25
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1742 tokens
+  Output :    733 tokens
+  Total  :   2475 tokens
+  Cost   : $0.004326 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in English (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 sentences in English for a Telegram signal post>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "ACGL",
+  "as_of": "2026-05-16",
+  "company_type": "Financial",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 7.42,
+    "valuation": 6.46,
+    "technical": 5.15,
+    "risk": 7.55,
+    "style_fit": 10.0
+  },
+  "horizon_scores": {
+    "short": 64.8,
+    "medium": 69.6,
+    "long": 74.7
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "style_fit.revenue_growth_style=10.0",
+    "quality.eps_growth=10.0",
+    "quality.revenue_growth=10.0"
+  ],
+  "top_negative_features": [
+    "technical.relative_strength=2.4",
+    "technical.momentum_3m=3.1",
+    "risk.revenue_stability=3.7"
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 7.2,
+      "pe_forward": 9.5,
+      "pe_hist_avg": 8.3,
+      "ps_ttm": 1.9,
+      "analyst_target_median": 110.0,
+      "analyst_upside_pct": 17.0,
+      "analyst_count": 19,
+      "analyst_consensus": "buy"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 14.3,
+      "revenue_growth_3y_avg_pct": 28.0,
+      "gross_margin_pct": NaN,
+      "net_margin_pct": 22.1,
+      "roe_pct": 18.2
+    },
+    "technical": {
+      "price_vs_ma50_pct": -1.3,
+      "price_vs_ma200_pct": 0.8,
+      "atr_pct_daily": 2.19
+    },
+    "risk": {
+      "beta": 0.33,
+      "short_interest_pct_float": 2.3
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 93.98,
+  "limit_price": 91.16,
+  "target_price": 110.0,
+  "stop_price": 79.31,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": true,
+  "contradictions": [],
+  "confidence": 0.92,
+  "narrative": "ACGL shows strong fundamentals (14.3% revenue growth, 22.1% net margin, 18.2% ROE) with attractive valuation (PE 7.2 vs 8.3 hist avg) and analyst consensus 'buy' (+17% upside). Technical weakness warrants pullback entry at 91.16; risk/reward 1.94 is sound for long-term accumulation.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**Verification Summary:**
+
+1. **Internal Consistency:** All scores are internally aligned:
+   - Quality (7.42): Justified by 14.3% YoY revenue growth, 22.1% net margin, 18.2% ROE — all solid.
+   - Valuation (6.46): PE 7.2 (below 8.3 hist avg), forward PE 9.5, +17% analyst upside — acceptable, not exceptional.
+   - Technical (5.15): Weak momentum (3.1) and relative strength (2.4) are the drag, but price near MA200 (+0.8%) and MA50 (-1.3%) are reasonable. Score reflects momentum weakness, not extended price.
+   - Risk (7.55): Low beta (0.33), minimal short interest (2.3%), low debt profile implied — appropriate for a financial insurer.
+   - Style fit (10.0): Revenue and EPS growth both 10.0 — perfectly aligned.
+
+2. **Raw Metrics Cross-Check:**
+   - No contradictions. Revenue growth (14.3% YoY, 28% 3Y avg), margins, and ROE all support a quality score ≥7.
+   - PE 7.2 with analyst consensus "buy" and +17% upside supports valuation score of 6.46 (not flashy, but fair).
+   - Technical score correctly reflects momentum weakness despite stable price structure.
+
+3. **Trade Action Justification:**
+   - "Accumulate on Pullback" is appropriate: analyst consensus is "buy," but technical momentum is weak (relative_strength 2.4, momentum_3m 3.1).
+   - **R/R verification:** (110.0 − 91.16) / (91.16 − 79.31) = 18.84 / 11.85 = **1.59**, which exceeds the 1.5 threshold. Sound risk/reward for long-horizon entry.
+   - Limit price (91.16) is -3% from current (93.98), a modest pullback target consistent with technical weakness.
+
+4. **Horizon Alignment:**
+   - Long-horizon scores (74.7) weighted toward quality (35%) and risk (25%), which are both strong. Technical weakness (10% weight) appropriately de-emphasized.
+
+**No abstention warranted:** Data quality is good, no critical stop factors, R/R > 1.5, and action aligns with block scores.
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  ACGL  |  claude-haiku-4-5  |  2026-05-16 17:04:10
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1742 tokens
+  Output :    741 tokens
+  Total  :   2483 tokens
+  Cost   : $0.004358 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in English (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 sentences in English for a Telegram signal post>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "ACGL",
+  "as_of": "2026-05-16",
+  "company_type": "Financial",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 7.42,
+    "valuation": 6.46,
+    "technical": 5.15,
+    "risk": 7.55,
+    "style_fit": 10.0
+  },
+  "horizon_scores": {
+    "short": 64.8,
+    "medium": 69.6,
+    "long": 74.7
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "style_fit.revenue_growth_style=10.0",
+    "quality.eps_growth=10.0",
+    "quality.revenue_growth=10.0"
+  ],
+  "top_negative_features": [
+    "technical.relative_strength=2.4",
+    "technical.momentum_3m=3.1",
+    "risk.revenue_stability=3.7"
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 7.2,
+      "pe_forward": 9.5,
+      "pe_hist_avg": 8.3,
+      "ps_ttm": 1.9,
+      "analyst_target_median": 110.0,
+      "analyst_upside_pct": 17.0,
+      "analyst_count": 19,
+      "analyst_consensus": "buy"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 14.3,
+      "revenue_growth_3y_avg_pct": 28.0,
+      "gross_margin_pct": NaN,
+      "net_margin_pct": 22.1,
+      "roe_pct": 18.2
+    },
+    "technical": {
+      "price_vs_ma50_pct": -1.3,
+      "price_vs_ma200_pct": 0.8,
+      "atr_pct_daily": 2.19
+    },
+    "risk": {
+      "beta": 0.33,
+      "short_interest_pct_float": 2.3
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 93.98,
+  "limit_price": 90.9,
+  "target_price": 110.0,
+  "stop_price": 79.31,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": true,
+  "contradictions": [],
+  "confidence": 0.88,
+  "narrative": "ACGL shows strong long-term fundamentals (14% YoY revenue growth, 22% net margin, 18% ROE) with attractive valuation (7.2x PE, 17% upside to consensus). Weak near-term technicals justify limit entry at $90.90 for a 2.2:1 risk/reward.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**Verification Summary:**
+
+1. **Block Scores → Horizon Scores:** Internally consistent. Long-horizon score (74.7) appropriately weights quality (35%) and risk (25%) over technical (10%), masking the weak technical score (5.15).
+
+2. **Quality Score (7.42):** Justified. Revenue growth 14.3% YoY + 28% 3Y avg, net margin 22.1%, ROE 18.2% all support mid-high quality.
+
+3. **Valuation Score (6.46):** Reasonable. PE 7.2 is below historical average (8.3), forward PE 9.5 modest; analyst consensus "buy" with 17% upside supports acceptable valuation, not strong.
+
+4. **Technical Score (5.15):** Weak but *appropriate* for long-horizon action. Relative strength (2.4) and momentum (3.1) are genuinely poor; however, price is only -1.3% vs MA50 and +0.8% vs MA200—not extended. "Accumulate on Pullback" correctly acknowledges this weakness.
+
+5. **Risk Score (7.55):** Strong. Beta 0.33 (very defensive), short interest 2.3% (low), no critical stop factors. Revenue stability (3.7) is the sole concern but doesn't dominate the score.
+
+6. **Style Fit (10.0):** Perfect score driven by revenue growth alignment (10.0) and EPS growth (10.0)—both metrics check out.
+
+7. **R/R Verification:**
+   - Entry (limit): $90.90
+   - Target: $110.0
+   - Stop: $79.31
+   - R/R = ($110.0 − $90.90) / ($90.90 − $79.31) = $19.1 / $11.59 = **1.65:1** ✓ (>1.5, favourable)
+
+8. **Action Semantics:** "Accumulate on Pullback" is correctly applied. The weak technical and momentum signals justify a limit order 3.3% below market, not immediate entry. This is NOT a contradiction—it's the engine's deliberate downgrade.
+
+9. **No Critical Stop Factors:** Empty list is consistent with the fundamentals and long-horizon horizon.
+
+**Minor Note:** Revenue stability (3.7) is notably weak in the risk block, suggesting cyclical or volatile earnings. This aligns with ACGL's insurance underwriting cycle exposure but is not severe enough to contradict the overall risk score in context.
+
+──────────────────────────────────────────────────────────────────────

@@ -1,0 +1,172 @@
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  NDAQ  |  claude-haiku-4-5  |  2026-05-16 18:11:56
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1765 tokens
+  Output :    925 tokens
+  Total  :   2690 tokens
+  Cost   : $0.005112 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in English (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 sentences in English for a Telegram signal post>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "NDAQ",
+  "as_of": "2026-05-16",
+  "company_type": "Mature Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 8.27,
+    "valuation": 5.54,
+    "technical": 6.91,
+    "risk": 7.34,
+    "style_fit": 7.92
+  },
+  "horizon_scores": {
+    "short": 69.3,
+    "medium": 70.1,
+    "long": 74.4
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "risk.fcf_consistency=10.0",
+    "quality.accruals_ratio=10.0",
+    "quality.cfo_ni_ratio=10.0"
+  ],
+  "top_negative_features": [
+    "risk.revenue_stability=1.2",
+    "quality.roe=2.6",
+    "valuation.ev_to_ebitda=3.9"
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 27.4,
+      "pe_forward": 20.6,
+      "pe_hist_avg": 35.4,
+      "ps_ttm": 6.4,
+      "analyst_target_median": 109.0,
+      "analyst_upside_pct": 19.7,
+      "analyst_count": 15,
+      "analyst_consensus": "buy"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 11.6,
+      "revenue_growth_3y_avg_pct": 10.4,
+      "gross_margin_pct": 60.8,
+      "net_margin_pct": 16.9,
+      "roe_pct": 14.6,
+      "fcf_yield_pct": 4.4
+    },
+    "technical": {
+      "price_vs_ma50_pct": 4.2,
+      "price_vs_ma200_pct": 1.2,
+      "atr_pct_daily": 2.14
+    },
+    "risk": {
+      "beta": 0.99,
+      "debt_to_equity": 0.7,
+      "short_interest_pct_float": 2.0
+    }
+  },
+  "trade_action": "Accumulate",
+  "current_price": 91.06,
+  "target_price": 109.0,
+  "stop_price": 87.3,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": false,
+  "contradictions": [
+    "quality score 8.27 contradicts raw roe_pct 14.6% (acceptable but not 'strong'); top_negative lists 'quality.roe=2.6' suggesting internal score is much lower than 8.27",
+    "quality score 8.27 conflicts with top_negative 'quality.roe=2.6' — internal component score is severely weak, pulling down the block; 8.27 appears inflated",
+    "risk score 7.34 conflicts with top_negative 'risk.revenue_stability=1.2' — a revenue stability score of 1.2 is critically weak; this should cascade down the block score meaningfully, not sit at 7.34",
+    "valuation score 5.54 is marginally acceptable, yet pe_trailing 27.4× with revenue_growth_1y 11.6% and net_margin 16.9% suggests moderate overvaluation; score placement is correct but tight against pe_hist_avg 35.4× (stock is cheaper than history)",
+    "technical score 6.91 adequate for long horizon, but price_vs_ma200_pct 1.2% signals minimal pullback room; at market price 91.06 vs target 109.0, R/R = (109−91.06)/(91.06−87.3) = 17.94/3.76 ≈ 4.8× is very attractive, mitigating technical weakness"
+  ],
+  "confidence": 0.62,
+  "narrative": "NDAQ shows strong FCF generation, solid margins (16.9% net), and analyst consensus 'buy' with 19.7% upside to $109. However, internal quality and revenue stability scores are critically weak, and the 27.4× trailing PE is elevated despite acceptable long-term fundamentals — entry at market offers excellent risk/reward (4.8×) but quality inconsistency warrants caution.",
+  "action": "accumulate",
+  "abstain": false
+}
+```
+
+**Key findings:**
+1. **Quality score inflation**: The block score 8.27 is implausible given `top_negative quality.roe=2.6` — a component score of 2.6 on ROE is severely weak and should pull the overall block well below 8. The raw ROE of 14.6% is acceptable (not weak), but the internal engine's component score 2.6 suggests the engine's threshold for "strong ROE" is much higher (likely >20%). This is an **internal consistency failure**.
+
+2. **Risk score weakness**: Revenue stability 1.2 is critically poor; a score this low should materially reduce risk from 7.34. The low revenue volatility tolerance conflicts with the acceptable risk block score.
+
+3. **Valuation reasonableness**: At 27.4× trailing and 11.6% revenue growth, the stock is moderately expensive but *cheaper than its historical average* (35.4×). Analyst consensus is "buy" with +19.7% upside. The valuation score 5.54 (acceptable) is defensible, though tight.
+
+4. **Risk/reward at market**: (109 − 91.06) / (91.06 − 87.3) ≈ **4.8×** is excellent, justifying "Accumulate" despite weak technicals and quality flags.
+
+5. **Horizon alignment**: Long-horizon (1–5 years) reduces weight on technical (10%) and increases weight on quality (35%) — but quality component weaknesses (ROE, revenue stability) are not reflected fairly in the 8.27 block score.
+
+**Recommendation**: Action "Accumulate" is **supportable** (R/R is strong, analysts bullish, fundamentals acceptable), but the quality block score needs internal audit — 8.27 is implausibly high given the component failures flagged in top_negative.
+
+──────────────────────────────────────────────────────────────────────

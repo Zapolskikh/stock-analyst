@@ -4,7 +4,6 @@ Tests for src/data/normalizer.py — fully offline, no network.
 from __future__ import annotations
 
 import math
-from typing import Any
 
 import pandas as pd
 import pytest
@@ -22,7 +21,6 @@ from src.data.normalizer import (
     _valid,
     normalise,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
@@ -419,7 +417,6 @@ class TestComputeTTMFlow:
         assert _compute_ttm_flow([]) is None
 
     def test_returns_none_when_nan_reduces_count(self):
-        import math
         result = _compute_ttm_flow([25.0, float("nan"), 35.0, 40.0])
         # Only 3 valid values → None
         assert result is None

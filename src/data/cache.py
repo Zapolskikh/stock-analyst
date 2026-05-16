@@ -8,8 +8,8 @@ Cache lives in  data/cache/  relative to the working directory.
 """
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import time
 from pathlib import Path
 

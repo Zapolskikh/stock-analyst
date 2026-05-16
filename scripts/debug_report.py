@@ -73,29 +73,54 @@ def _header(title: str) -> str:
 # Main report builder
 # ---------------------------------------------------------------------------
 
-def build_debug_report(ticker: str) -> str:
-    from scripts.load_offline import normalise_offline
-    from src.engine.engine import analyse_nd, _HORIZON_WEIGHTS, _check_stop_factors, _rating, _decision
+def build_debug_report(ticker: str, live: bool = False) -> str:
     from src.classifier import classify
+    from src.engine.engine import _HORIZON_WEIGHTS, analyse_nd
     from src.models.benchmarks import get_benchmark
     from src.scoring.quality import score_quality
-    from src.scoring.valuation import score_valuation
-    from src.scoring.technical import score_technical
     from src.scoring.risk import score_risk
     from src.scoring.style_fit import score_style_fit
-    from src.scoring.fair_value import compute_fair_value
+    from src.scoring.technical import score_technical
+    from src.scoring.valuation import score_valuation
 
     ticker = ticker.upper()
     lines: list[str] = []
 
     # ── Header ──────────────────────────────────────────────────────────────
     lines.append(_header(f"DEBUG ANALYSIS REPORT — {ticker}"))
-    lines.append(f"  Generated: May 15, 2026")
+    lines.append("  Generated: May 15, 2026")
 
     # ── Step 1: Load & Normalise ─────────────────────────────────────────────
     lines.append(_section("STEP 1 — NORMALISED DATA"))
 
-    nd = normalise_offline(ticker)
+    if live:
+        import pandas as pd
+
+        from src.data.normalizer import normalise
+        from src.data.price import fetch_info, fetch_ohlcv
+        from src.data.sec_edgar import fetch_fundamentals
+        print(f"  [live] Fetching {ticker} from yfinance + SEC EDGAR...")
+        try:
+            price_df = fetch_ohlcv(ticker, period="2y")
+        except Exception:
+            price_df = pd.DataFrame()
+        try:
+            spy_df = fetch_ohlcv("SPY", period="2y")
+            spy_prices = [float(v) for v in spy_df["Close"].dropna().tail(252)]
+        except Exception:
+            spy_prices = []
+        try:
+            info = fetch_info(ticker)
+        except Exception:
+            info = {}
+        try:
+            fundamentals = fetch_fundamentals(ticker)
+        except Exception:
+            fundamentals = {}
+        nd = normalise(fundamentals, price_df, info, ticker, spy_prices=spy_prices)
+    else:
+        from scripts.load_offline import normalise_offline
+        nd = normalise_offline(ticker)
 
     # Run full pipeline once to get trade_rec and all derived values
     result = analyse_nd(nd)
@@ -150,7 +175,7 @@ def build_debug_report(ticker: str) -> str:
         lines.append(f"  ⚠ Split adj.    : {nd.last_split_factor} on {nd.last_split_date} — shares/EPS normalised")
 
     if nd.normalized_pe is not None:
-        lines.append(f"\n  ── Mid-Cycle Valuation (normalized, 7yr EPS median) ──")
+        lines.append("\n  ── Mid-Cycle Valuation (normalized, 7yr EPS median) ──")
         lines.append(f"  Normalized EPS  : {_fmt(nd.normalized_eps, '.2f', '$')}")
         lines.append(f"  Normalized P/E  : {_fmt(nd.normalized_pe, '.1f')}x  (vs trailing {_fmt(nd.pe_trailing, '.1f')}x)")
 
@@ -294,8 +319,16 @@ def build_debug_report(ticker: str) -> str:
         "style_fit": score_style_fit(nd, bm),
     }
 
+    _BLOCK_LABELS = {
+        "quality":   "BUSINESS QUALITY",
+        "valuation": "VALUATION",
+        "technical": "TECHNICAL STATE",
+        "risk":      "RISK",
+        "style_fit": "SECTOR ARCHETYPE FIT",
+    }
     for name, bs in blocks.items():
-        lines.append(f"\n  ── Block: {name.upper()} ──  score={bs.score:.2f}/10  coverage={bs.coverage:.0%}  [{_bar(bs.score)}]")
+        label = _BLOCK_LABELS.get(name, name.upper())
+        lines.append(f"\n  ── Block: {label} ──  score={bs.score:.2f}/10  coverage={bs.coverage:.0%}  [{_bar(bs.score)}]")
         if bs.breakdown:
             lines.append("  Sub-metrics:")
             for metric, val in bs.breakdown.items():
@@ -371,7 +404,7 @@ def build_debug_report(ticker: str) -> str:
             bear, base, bull = fv.dcf_range
             b_str = f"${bear:.2f}" if bear is not None else "n/a"
             bull_str = f"${bull:.2f}" if bull is not None else "n/a"
-            lines.append(f"\n  DCF Scenario Range:")
+            lines.append("\n  DCF Scenario Range:")
             lines.append(f"    Bear (g×0.55, r×1.10)  : {b_str}")
             lines.append(f"    Base                   : ${base:.2f}" if base is not None else "    Base: n/a")
             lines.append(f"    Bull (g×1.45, r×0.92)  : {bull_str}")
@@ -729,13 +762,15 @@ DATA:
 
 def main():
     parser = argparse.ArgumentParser(description="Full debug analysis report for one ticker")
-    parser.add_argument("ticker", help="Ticker symbol (must have offline data)")
+    parser.add_argument("ticker", help="Ticker symbol")
+    parser.add_argument("--live", action="store_true",
+                        help="Fetch live data from yfinance + SEC EDGAR instead of offline cache")
     parser.add_argument("--out", default="reports", help="Output directory (default: reports/)")
     parser.add_argument("--no-print", dest="no_print", action="store_true",
                         help="Suppress terminal output (only save to file)")
     args = parser.parse_args()
 
-    report = build_debug_report(args.ticker)
+    report = build_debug_report(args.ticker, live=args.live)
 
     out_dir = ROOT / args.out
     out_dir.mkdir(parents=True, exist_ok=True)

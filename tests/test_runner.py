@@ -5,16 +5,10 @@ Uses only NullConnector and mocked analyse() calls (no network).
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Optional
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from src.ai.connector import build_connector
-from src.runner import BatchResult, run_universe, print_batch_summary, _save_report
-
+from src.runner import BatchResult, _save_report, print_batch_summary, run_universe
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
@@ -39,6 +33,9 @@ def _make_result(ticker: str, score: float, decision: str = "Buy") -> MagicMock:
     result.classification_confidence = 0.85
     result.rating = "Good Candidate"
     result.config_version = "1.0.0"
+    result.nd = None  # prevent _extract_raw_metrics from running on a MagicMock
+    result.trade_rec = None
+    result.current_price = 100.0
     return result
 
 

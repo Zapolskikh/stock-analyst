@@ -37,7 +37,6 @@ from typing import Optional
 
 from src.data.normalizer import NormalisedData
 
-
 # ---------------------------------------------------------------------------
 # Enum
 # ---------------------------------------------------------------------------
@@ -383,8 +382,7 @@ def classify(nd: NormalisedData) -> ClassificationResult:
         all_signals[ctype] = sig
     scores[CompanyType.OTHER] = 0.0
 
-    # Normalise to 0–1
-    max_score = max(scores.values()) or 1.0
+    # Normalise to 0–1 (divide by 100.0, not by max — scores are absolute points)
     confidences = {t: s / 100.0 for t, s in scores.items()}
 
     winner = max(scores, key=lambda t: scores[t])

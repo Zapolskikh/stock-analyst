@@ -3,17 +3,21 @@ Tests for src/engine/engine.py and src/output/formatter.py — fully offline.
 """
 from __future__ import annotations
 
-import math
 import pytest
 
 from src.classifier import CompanyType
 from src.data.normalizer import NormalisedData
 from src.engine.engine import (
-    AnalysisResult, HorizonScores, HorizonDecisions, StopFactor,
-    analyse_nd, _weighted_avg, _rating, _decision, _check_stop_factors,
+    AnalysisResult,
+    HorizonDecisions,
+    StopFactor,
+    _check_stop_factors,
+    _decision,
+    _rating,
+    _weighted_avg,
+    analyse_nd,
 )
 from src.output.formatter import format_brief, format_report
-
 
 # ---------------------------------------------------------------------------
 # Shared helper — builds a NormalisedData with sensible defaults
@@ -100,7 +104,7 @@ class TestRating:
         assert _rating(72) == "Good Candidate"
 
     def test_neutral(self):
-        assert _rating(60) == "Neutral / Watchlist"
+        assert _rating(60) == "Borderline"
 
     def test_weak(self):
         assert _rating(45) == "Weak"
@@ -127,14 +131,14 @@ class TestDecision:
         """Buy threshold aligned with Good Candidate (70)."""
         assert _decision(70, []) == "Buy"
 
-    def test_watch_at_69(self):
-        assert _decision(69, []) == "Watch"
+    def test_buy_on_limit_at_69(self):
+        assert _decision(69, []) == "Buy on Limit"
 
-    def test_watch_mid_score(self):
-        assert _decision(60, []) == "Watch"
+    def test_buy_on_limit_mid_score(self):
+        assert _decision(60, []) == "Buy on Limit"
 
-    def test_hold_low_score(self):
-        assert _decision(45, []) == "Hold"
+    def test_avoid_low_score(self):
+        assert _decision(45, []) == "Avoid"
 
     def test_avoid_very_low(self):
         assert _decision(25, []) == "Avoid"
@@ -155,16 +159,12 @@ class TestDecision:
 
 class TestStopFactors:
     def test_no_flags_for_healthy_company(self):
-        from src.engine.engine import _check_stop_factors
-        from src.scoring.quality import score_quality
-        from src.models.benchmarks import get_benchmark
         nd = _nd()
         blocks = {}
         factors = _check_stop_factors(nd, blocks)
         assert factors == []
 
     def test_negative_fcf_warning(self):
-        from src.engine.engine import _check_stop_factors
         nd = _nd(
             fcf_annual=[-10e9, -5e9, -8e9, -3e9],
             debt_to_equity_annual=[0.5, 0.5, 0.5, 0.5],
@@ -176,7 +176,6 @@ class TestStopFactors:
         assert fcf_flag.severity == "warning"  # D/E < 2.0
 
     def test_negative_fcf_with_high_debt_is_critical(self):
-        from src.engine.engine import _check_stop_factors
         nd = _nd(
             fcf_annual=[-10e9, -5e9, -8e9, -3e9],
             debt_to_equity_annual=[3.0, 3.5, 4.0, 4.5],
@@ -187,21 +186,27 @@ class TestStopFactors:
         assert fcf_flag.severity == "critical"
 
     def test_extreme_pe_triggers_warning(self):
-        from src.engine.engine import _check_stop_factors
+        # pe_trailing=150 with default pe_forward=24 → pe_trailing > 3*pe_forward AND pe_forward < 25
+        # → triggers "Accounting Distortion (P/E)" (not "Extreme Valuation" which requires no low fwd PE)
         nd = _nd(pe_trailing=150.0)
+        factors = _check_stop_factors(nd, {})
+        names = [f.name for f in factors]
+        assert "Accounting Distortion (P/E)" in names
+
+    def test_extreme_pe_no_forward_triggers_extreme_valuation(self):
+        # No forward PE → "Extreme Valuation" fires
+        nd = _nd(pe_trailing=150.0, pe_forward=None)
         factors = _check_stop_factors(nd, {})
         names = [f.name for f in factors]
         assert "Extreme Valuation" in names
 
     def test_pe_below_100_no_valuation_flag(self):
-        from src.engine.engine import _check_stop_factors
         nd = _nd(pe_trailing=95.0)
         factors = _check_stop_factors(nd, {})
         names = [f.name for f in factors]
         assert "Extreme Valuation" not in names
 
     def test_very_high_debt_is_critical(self):
-        from src.engine.engine import _check_stop_factors
         nd = _nd(debt_to_equity_annual=[5.0, 5.5, 6.0, 6.5])
         # Technology company — default threshold 4.0, should be critical
         factors = _check_stop_factors(nd, {}, CompanyType.MATURE_TECH)
@@ -211,7 +216,6 @@ class TestStopFactors:
 
     def test_financial_high_debt_no_stop(self):
         """Financial-сектор: высокий D/E не должен давать critical стоп."""
-        from src.engine.engine import _check_stop_factors
         nd = _nd(debt_to_equity_annual=[8.0, 9.0, 10.0, 11.0])
         factors = _check_stop_factors(nd, {}, CompanyType.FINANCIAL)
         names = [f.name for f in factors]
@@ -219,7 +223,6 @@ class TestStopFactors:
 
     def test_turnaround_higher_de_threshold(self):
         """Turnaround: D/E=6 не должен давать critical (порог 8.0)."""
-        from src.engine.engine import _check_stop_factors
         nd = _nd(debt_to_equity_annual=[5.0, 5.5, 6.0, 6.0])
         factors = _check_stop_factors(nd, {}, CompanyType.TURNAROUND)
         names = [f.name for f in factors]
@@ -227,7 +230,6 @@ class TestStopFactors:
 
     def test_turnaround_extreme_debt_is_critical(self):
         """Turnaround: D/E=9 всё равно critical (выше порога 8.0)."""
-        from src.engine.engine import _check_stop_factors
         nd = _nd(debt_to_equity_annual=[7.0, 8.0, 8.5, 9.0])
         factors = _check_stop_factors(nd, {}, CompanyType.TURNAROUND)
         debt_flag = next((f for f in factors if f.name == "High Debt"), None)
@@ -235,7 +237,6 @@ class TestStopFactors:
         assert debt_flag.severity == "critical"
 
     def test_technical_breakdown_from_low_score(self):
-        from src.engine.engine import _check_stop_factors
         from src.scoring.base import BlockScore
         blocks = {"technical": BlockScore(score=2.0, breakdown={}, notes=[])}
         factors = _check_stop_factors(_nd(), blocks)
@@ -243,7 +244,6 @@ class TestStopFactors:
         assert "Technical Breakdown" in names
 
     def test_no_technical_flag_when_score_normal(self):
-        from src.engine.engine import _check_stop_factors
         from src.scoring.base import BlockScore
         blocks = {"technical": BlockScore(score=6.0, breakdown={}, notes=[])}
         factors = _check_stop_factors(_nd(), blocks)
@@ -251,7 +251,6 @@ class TestStopFactors:
         assert "Technical Breakdown" not in names
 
     def test_deteriorating_margins_flag(self):
-        from src.engine.engine import _check_stop_factors
         nd = _nd(net_margin_annual=[5.0, -2.0, -5.0, -15.0])
         factors = _check_stop_factors(nd, {})
         names = [f.name for f in factors]

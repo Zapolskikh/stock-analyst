@@ -21,10 +21,10 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from src.charts.fundamental_chart import build_fundamental_charts
+from src.charts.price_chart import build_price_chart
 from src.data.price import fetch_ohlcv
 from src.data.sec_edgar import fetch_fundamentals, get_cik
-from src.charts.price_chart import build_price_chart
-from src.charts.fundamental_chart import build_fundamental_charts
 
 _SEP = "─" * 56
 

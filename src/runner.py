@@ -32,15 +32,14 @@ Usage::
 """
 from __future__ import annotations
 
-import traceback
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
 from src.ai.connector import AIConnector, AIInput, AIReview, build_connector
 from src.engine.engine import AnalysisResult, analyse
-from src.output.formatter import format_report, format_brief
-
+from src.output.formatter import format_report
+from src.output.telegram_bot import TelegramBot, send_batch_results
 
 # ---------------------------------------------------------------------------
 # Result container
@@ -57,6 +56,7 @@ class BatchResult:
     ai_skipped: bool = False               # True when score < min_score
     report_path: Optional[Path] = None     # saved report file
     chart_path: Optional[Path] = None      # saved price chart HTML
+    source: str = ""                       # index / list this ticker came from, e.g. "S&P 500"
 
     # Convenience ----------------------------------------------------------
 
@@ -111,6 +111,7 @@ def run_universe(
     min_score: float = 65.0,
     save_all_reports: bool = False,
     save_charts: bool = True,
+    telegram_bot: Optional[TelegramBot] = None,
 ) -> list[BatchResult]:
     """Run the full analysis pipeline over *tickers*.
 
@@ -132,6 +133,9 @@ def run_universe(
     save_charts:
         Save an interactive price chart HTML for every stock that passes
         the AI filter (or every stock above min_score when using NullConnector).
+    telegram_bot:
+        Optional TelegramBot instance. When set, sends a signal post for
+        every stock that passes the screen after the batch completes.
 
     Returns
     -------
@@ -210,6 +214,20 @@ def run_universe(
             -(b.result.overall_score if b.result else 0),
         )
     )
+
+    # ── Telegram notifications ─────────────────────────────────────────────
+    if telegram_bot is not None:
+        passed = [b for b in batch if b.passed_screen]
+        if passed:
+            print(f"\nSending {len(passed)} signal(s) to Telegram...", end=" ")
+            try:
+                sent = send_batch_results(telegram_bot, passed)
+                print(f"{sent} sent.")
+            except Exception as exc:
+                print(f"ERROR — {exc}")
+        else:
+            print("\nNo signals to send to Telegram.")
+
     return batch
 
 
@@ -226,8 +244,8 @@ def _save_report(result: AnalysisResult, out_dir: Path) -> Path:
 
 def _save_price_chart(result: AnalysisResult, out_dir: Path) -> Path:
     """Fetch OHLCV and save an interactive price chart to *out_dir/<TICKER>_chart.html*."""
-    from src.data.price import fetch_ohlcv
     from src.charts.price_chart import build_price_chart
+    from src.data.price import fetch_ohlcv
 
     df = fetch_ohlcv(result.ticker, period="2y")
     fig = build_price_chart(df, result.ticker)
@@ -238,8 +256,8 @@ def _save_price_chart(result: AnalysisResult, out_dir: Path) -> Path:
 
 def _save_fundamental_charts(result: AnalysisResult, out_dir: Path) -> list[Path]:
     """Build and save fundamental HTML charts (revenue, margins, balance sheet, etc.)."""
-    from src.data.sec_edgar import fetch_fundamentals
     from src.charts.fundamental_chart import build_fundamental_charts
+    from src.data.sec_edgar import fetch_fundamentals
 
     fundamentals = fetch_fundamentals(result.ticker)
     saved = build_fundamental_charts(fundamentals, result.ticker, out_dir)

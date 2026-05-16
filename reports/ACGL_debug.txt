@@ -1,0 +1,875 @@
+
+══════════════════════════════════════════════════════════════════════
+  DEBUG ANALYSIS REPORT — ACGL
+══════════════════════════════════════════════════════════════════════
+  Generated: May 15, 2026
+
+──────────────────────────────────────────────────────────────────────
+  STEP 1 — NORMALISED DATA
+──────────────────────────────────────────────────────────────────────
+
+  Ticker          : ACGL
+  Sector          : Financial Services
+  Industry        : Insurance - Diversified
+  Years of history: 18
+  Data quality    : good
+  Missing metrics : gross_profit, cost_of_revenue, operating_income, capex, long_term_debt, rd_expense, da_expense
+  TTM as-of       : 2026-03-31
+
+  ── Market / Price ──
+  Current price   : 93.98$
+  Market cap      : $32.84B
+  P/E trailing    : 7.2
+  P/E forward     : 9.5
+  Beta            : 0.33
+  Dividend yield  : n/a
+  Avg daily vol   : 2,015,138 shares
+
+  ── Analyst Consensus ──
+  Forward EPS     : 9.93$
+  Target (median) : 110.00$
+  Target (mean)   : 108.92$
+  # analysts      : 19
+  Recommendation  : Buy  (mean=2.25)
+
+  ── Market Sentiment ──
+  Short ratio     : 3.3 days  (days to cover)
+  Short % float   : 2.3%
+  Institutional   : 95.8%  owned by institutions
+  Insider owned   : 2.6%  owned by insiders
+
+  ── Historical Valuation (P/E from ohlcv) ──
+  P/E hist avg    : 8.3x
+  P/E hist high   : 8.3x
+  P/E hist low    : 8.3x
+  vs current P/E  : 7.2x  (-13% vs 5yr avg)
+  ⚠ Split adj.    : 3:1 on 2018-06-21 — shares/EPS normalised
+
+  ── Mid-Cycle Valuation (normalized, 7yr EPS median) ──
+  Normalized EPS  : 5.23$
+  Normalized P/E  : 18.0x  (vs trailing 7.2x)
+
+  ── Data Quality Breakdown ──
+  Accounting            : ✓ reliable
+  Cashflow              : — sector_n_a
+  Valuation             : ✓ reliable
+  Historical data       : ✓ full
+  Sector fit            : ✗ unsupported
+
+  ── TTM (Trailing Twelve Months) ──
+  Revenue         : $17.36B
+  Gross profit    : n/a  →  margin n/a
+  Operating inc.  : n/a  →  margin n/a
+  Net income      : $3.85B  →  margin 23.1%
+  Operating CF    : $5.17B
+  CapEx           : n/a
+  FCF             : n/a  →  margin n/a
+  EPS diluted     : 10.15$
+
+  ── Annual Revenue ($B) ──
+  2008:  2.97B
+  2009:  3.50B
+  2010:  3.24B
+  2011:  3.06B
+  2012:  3.48B
+  2013:  3.53B
+  2014:  3.99B
+  2015:  3.94B
+  2016:  4.46B
+  2017:  5.63B
+  2018:  5.45B
+  2019:  6.93B
+  2020:  8.51B
+  2021:  9.25B
+  2022:  9.61B
+  2023:  13.63B
+  2024:  17.44B
+  2025:  19.93B
+
+  ── Annual Revenue Growth (YoY %) ──
+  2008:  n/a
+  2009:  +18.0%
+  2010:  -7.4%
+  2011:  -5.6%
+  2012:  +13.7%
+  2013:  +1.3%
+  2014:  +13.1%
+  2015:  -1.3%
+  2016:  +13.4%
+  2017:  +26.1%
+  2018:  -3.1%
+  2019:  +27.1%
+  2020:  +22.8%
+  2021:  +8.7%
+  2022:  +3.9%
+  2023:  +41.8%
+  2024:  +27.9%
+  2025:  +14.3%
+
+  ── Annual Gross Margin (%) ──
+  2008:  n/a
+  2009:  n/a
+  2010:  n/a
+  2011:  n/a
+  2012:  n/a
+  2013:  n/a
+  2014:  n/a
+  2015:  n/a
+  2016:  n/a
+  2017:  n/a
+  2018:  n/a
+  2019:  n/a
+  2020:  n/a
+  2021:  n/a
+  2022:  n/a
+  2023:  n/a
+  2024:  n/a
+  2025:  n/a
+
+  ── Annual Operating Margin (%) ──
+  2008:  n/a
+  2009:  n/a
+  2010:  n/a
+  2011:  n/a
+  2012:  n/a
+  2013:  n/a
+  2014:  n/a
+  2015:  n/a
+  2016:  n/a
+  2017:  n/a
+  2018:  n/a
+  2019:  n/a
+  2020:  n/a
+  2021:  n/a
+  2022:  n/a
+  2023:  n/a
+  2024:  n/a
+  2025:  n/a
+
+  ── Annual Net Margin (%) ──
+  2008:  n/a
+  2009:  25.0%
+  2010:  26.0%
+  2011:  14.2%
+  2012:  17.0%
+  2013:  20.1%
+  2014:  20.9%
+  2015:  13.7%
+  2016:  15.5%
+  2017:  11.0%
+  2018:  13.9%
+  2019:  23.6%
+  2020:  16.5%
+  2021:  23.3%
+  2022:  15.4%
+  2023:  32.6%
+  2024:  24.7%
+  2025:  22.1%
+
+  ── Annual Net Income ($B) ──
+  2008:  n/a
+  2009:  0.88B
+  2010:  0.84B
+  2011:  0.44B
+  2012:  0.59B
+  2013:  0.71B
+  2014:  0.83B
+  2015:  0.54B
+  2016:  0.69B
+  2017:  0.62B
+  2018:  0.76B
+  2019:  1.64B
+  2020:  1.41B
+  2021:  2.16B
+  2022:  1.48B
+  2023:  4.44B
+  2024:  4.31B
+  2025:  4.40B
+
+  ── Annual FCF ($B) ──
+  2008:  n/a
+  2009:  n/a
+  2010:  n/a
+  2011:  n/a
+  2012:  n/a
+  2013:  n/a
+  2014:  n/a
+  2015:  n/a
+  2016:  n/a
+  2017:  n/a
+  2018:  n/a
+  2019:  n/a
+  2020:  n/a
+  2021:  n/a
+  2022:  n/a
+  2023:  n/a
+  2024:  n/a
+  2025:  n/a
+
+  ── Annual EPS diluted ($) ──
+  2008:  1.36$
+  2009:  1.53$
+  2010:  1.73$
+  2011:  0.99$
+  2012:  1.34$
+  2013:  1.69$
+  2014:  2.01$
+  2015:  1.36$
+  2016:  1.78$
+  2017:  1.36$
+  2018:  1.73$
+  2019:  3.87$
+  2020:  3.32$
+  2021:  5.23$
+  2022:  3.80$
+  2023:  11.62$
+  2024:  11.19$
+  2025:  11.60$
+
+  ── Annual EPS Growth (YoY %) ──
+  2008:  n/a
+  2009:  +12.0%
+  2010:  +13.1%
+  2011:  -42.7%
+  2012:  +35.7%
+  2013:  +25.8%
+  2014:  +18.7%
+  2015:  -32.1%
+  2016:  +30.6%
+  2017:  -23.6%
+  2018:  +27.2%
+  2019:  +123.7%
+  2020:  -14.2%
+  2021:  +57.5%
+  2022:  -27.3%
+  2023:  +205.8%
+  2024:  -3.7%
+  2025:  +3.7%
+
+  ── Annual ROE (%) ──
+  2008:  n/a
+  2009:  20.3%
+  2010:  18.8%
+  2011:  9.5%
+  2012:  11.5%
+  2013:  12.6%
+  2014:  13.7%
+  2015:  8.7%
+  2016:  8.4%
+  2017:  6.7%
+  2018:  8.0%
+  2019:  14.2%
+  2020:  10.7%
+  2021:  15.9%
+  2022:  11.4%
+  2023:  24.2%
+  2024:  20.7%
+  2025:  18.2%
+
+  ── Annual ROA (%) ──
+  2008:  n/a
+  2009:  5.7%
+  2010:  5.2%
+  2011:  2.5%
+  2012:  3.3%
+  2013:  3.6%
+  2014:  3.8%
+  2015:  2.3%
+  2016:  2.4%
+  2017:  1.9%
+  2018:  2.4%
+  2019:  4.3%
+  2020:  3.2%
+  2021:  4.8%
+  2022:  3.1%
+  2023:  7.5%
+  2024:  6.1%
+  2025:  5.6%
+
+  ── Annual Debt-to-Equity (x) ──
+  2008:  n/a
+  2009:  n/a
+  2010:  n/a
+  2011:  n/a
+  2012:  n/a
+  2013:  n/a
+  2014:  n/a
+  2015:  n/a
+  2016:  n/a
+  2017:  n/a
+  2018:  n/a
+  2019:  n/a
+  2020:  n/a
+  2021:  n/a
+  2022:  n/a
+  2023:  n/a
+  2024:  n/a
+  2025:  n/a
+
+  ── Annual Long-term Debt ($B) ──
+  2008:  n/a
+  2009:  n/a
+  2010:  n/a
+  2011:  n/a
+  2012:  n/a
+  2013:  n/a
+  2014:  n/a
+  2015:  n/a
+  2016:  n/a
+  2017:  n/a
+  2018:  n/a
+  2019:  n/a
+  2020:  n/a
+  2021:  n/a
+  2022:  n/a
+  2023:  n/a
+  2024:  n/a
+  2025:  n/a
+
+  ── Annual Equity ($B) ──
+  2008:  3.43B
+  2009:  4.32B
+  2010:  4.48B
+  2011:  4.59B
+  2012:  5.17B
+  2013:  5.65B
+  2014:  6.09B
+  2015:  6.17B
+  2016:  8.25B
+  2017:  9.20B
+  2018:  9.44B
+  2019:  11.50B
+  2020:  13.11B
+  2021:  13.55B
+  2022:  12.91B
+  2023:  18.35B
+  2024:  20.82B
+  2025:  24.21B
+
+  ── Annual Total Assets ($B) ──
+  2008:  n/a
+  2009:  15.38B
+  2010:  16.28B
+  2011:  17.11B
+  2012:  17.82B
+  2013:  19.56B
+  2014:  21.97B
+  2015:  23.14B
+  2016:  29.37B
+  2017:  32.05B
+  2018:  32.22B
+  2019:  37.89B
+  2020:  43.28B
+  2021:  45.10B
+  2022:  47.99B
+  2023:  58.91B
+  2024:  70.91B
+  2025:  79.24B
+
+  ── Annual Shares Outstanding (M) ──
+  2008:  n/a
+  2009:  492.9M
+  2010:  418.9M
+  2011:  403.1M
+  2012:  401.5M
+  2013:  401.0M
+  2014:  382.1M
+  2015:  367.9M
+  2016:  368.4M
+  2017:  392.9M
+  2018:  402.5M
+  2019:  405.6M
+  2020:  406.7M
+  2021:  378.9M
+  2022:  370.4M
+  2023:  373.4M
+  2024:  376.4M
+  2025:  359.0M
+
+  ── Annual Share Dilution YoY (%) ──
+  2008:  n/a
+  2009:  n/a
+  2010:  -15.0%
+  2011:  -3.8%
+  2012:  -0.4%
+  2013:  -0.1%
+  2014:  -4.7%
+  2015:  -3.7%
+  2016:  +0.1%
+  2017:  +6.7%
+  2018:  +2.4%
+  2019:  +0.8%
+  2020:  +0.3%
+  2021:  -6.8%
+  2022:  -2.2%
+  2023:  +0.8%
+  2024:  +0.8%
+  2025:  -4.6%
+
+  ── Annual EBITDA ($B) ──
+  2008:  n/a
+  2009:  n/a
+  2010:  n/a
+  2011:  n/a
+  2012:  n/a
+  2013:  n/a
+  2014:  n/a
+  2015:  n/a
+  2016:  n/a
+  2017:  n/a
+  2018:  n/a
+  2019:  n/a
+  2020:  n/a
+  2021:  n/a
+  2022:  n/a
+  2023:  n/a
+  2024:  n/a
+  2025:  n/a
+
+  ── Annual Operating CF ($B) ──
+  2008:  1.14B
+  2009:  0.99B
+  2010:  0.80B
+  2011:  0.87B
+  2012:  0.92B
+  2013:  0.85B
+  2014:  n/a
+  2015:  n/a
+  2016:  n/a
+  2017:  1.09B
+  2018:  1.56B
+  2019:  2.05B
+  2020:  2.89B
+  2021:  3.43B
+  2022:  3.82B
+  2023:  5.75B
+  2024:  6.67B
+  2025:  6.17B
+
+  ── Annual CapEx ($B) ──
+  2008:  n/a
+  2009:  n/a
+  2010:  n/a
+  2011:  n/a
+  2012:  n/a
+  2013:  n/a
+  2014:  n/a
+  2015:  n/a
+  2016:  n/a
+  2017:  n/a
+  2018:  n/a
+  2019:  n/a
+  2020:  n/a
+  2021:  n/a
+  2022:  n/a
+  2023:  n/a
+  2024:  n/a
+  2025:  n/a
+
+  ── Annual Cash ($B) ──
+  2008:  0.25B
+  2009:  0.33B
+  2010:  0.36B
+  2011:  0.35B
+  2012:  0.37B
+  2013:  0.43B
+  2014:  0.49B
+  2015:  0.55B
+  2016:  0.84B
+  2017:  0.61B
+  2018:  0.65B
+  2019:  0.73B
+  2020:  0.91B
+  2021:  0.86B
+  2022:  0.86B
+  2023:  0.92B
+  2024:  0.98B
+  2025:  0.99B
+
+  ── Price History ──
+  Bars available  : 252 trading days
+  First close     : $93.54
+  Last close      : $93.98
+  52w high (proxy): $101.98
+  52w low  (proxy): $84.72
+
+──────────────────────────────────────────────────────────────────────
+  STEP 2 — CLASSIFICATION
+──────────────────────────────────────────────────────────────────────
+
+  Winner          : Financial
+  Confidence      : 60%
+
+  All type scores:
+    Financial                  60.0  [██████░░░░]
+    Hypergrowth Tech           35.0  [████░░░░░░]
+    Turnaround                 30.0  [███░░░░░░░]
+    Cyclical                   25.0  [██░░░░░░░░]
+    Dividend / Defensive       15.0  [██░░░░░░░░]
+    Mature Tech                 0.0  [░░░░░░░░░░]
+    Pharma / Healthcare         0.0  [░░░░░░░░░░]
+    Other                       0.0  [░░░░░░░░░░]
+
+  Winning signals:
+    • sector: Financial Services
+
+──────────────────────────────────────────────────────────────────────
+  STEP 3 — BENCHMARK
+──────────────────────────────────────────────────────────────────────
+
+  Benchmark for   : Financial
+
+  Block weights (used for overall score):
+    quality        0.28
+    valuation      0.27
+    technical      0.13
+    risk           0.22
+    style_fit      0.10
+
+──────────────────────────────────────────────────────────────────────
+  STEP 4 — BLOCK SCORES
+──────────────────────────────────────────────────────────────────────
+
+  ── Block: BUSINESS QUALITY ──  score=7.42/10  coverage=80%  [███████░░░]
+  Sub-metrics:
+    revenue_growth            10.00  [██████████]
+    eps_growth                10.00  [██████████]
+    net_margin                 5.18  [█████░░░░░]
+    roe                        8.00  [████████░░]
+  Notes:
+    • Financial sector: gross margin, FCF margin, CFO/NI and accruals not applicable
+    • strong revenue growth 28%
+
+  ── Block: VALUATION ──  score=6.46/10  coverage=75%  [██████░░░░]
+  Sub-metrics:
+    pe_trailing                9.08  [█████████░]
+    pe_forward                 6.72  [███████░░░]
+    ptbv                       6.57  [███████░░░]
+  Notes:
+    • P/E 7 — cheap
+    • P/TBV 1.36
+
+  ── Block: TECHNICAL STATE ──  score=5.15/10  coverage=100%  [█████░░░░░]
+  Sub-metrics:
+    price_vs_ma50              6.19  [██████░░░░]
+    price_vs_ma200             7.33  [███████░░░]
+    momentum_3m                3.11  [███░░░░░░░]
+    momentum_6m                4.48  [████░░░░░░]
+    drawdown                   8.43  [████████░░]
+    trend_quality              4.17  [████░░░░░░]
+    relative_strength          2.36  [██░░░░░░░░]
+  Notes:
+    • price above MA200 — bullish structure
+    • underperforming SPY by 13% (3m)
+
+  ── Block: RISK ──  score=7.55/10  coverage=100%  [████████░░]
+  Sub-metrics:
+    beta                       9.59  [██████████]
+    earnings_stability         8.10  [████████░░]
+    revenue_stability          3.74  [████░░░░░░]
+    dilution_risk              9.21  [█████████░]
+    short_ratio                7.12  [███████░░░]
+  Notes:
+    • beta 0.3 — low market sensitivity
+    • share buybacks (-1.8%/yr avg — positive)
+
+  ── Block: SECTOR ARCHETYPE FIT ──  score=10.00/10  coverage=100%  [██████████]
+  Sub-metrics:
+    revenue_growth_style      10.00  [██████████]
+
+──────────────────────────────────────────────────────────────────────
+  STEP 5 — HORIZON SCORES
+──────────────────────────────────────────────────────────────────────
+
+  Horizon weight tables:
+  block           short   medium     long
+  ────────────  ───────  ───────  ───────
+  quality          0.10     0.25     0.35
+  valuation        0.20     0.30     0.15
+  technical        0.40     0.20     0.10
+  risk             0.25     0.15     0.25
+  style_fit        0.05     0.10     0.15
+
+  Short-term   : 64.8 / 100
+  Medium-term  : 69.6 / 100
+  Long-term    : 74.7 / 100
+
+  Overall score (benchmark weights × 10):
+  = 7.42×0.28 + 6.46×0.27 + 5.15×0.13 + 7.55×0.22 + 10.00×0.10
+  = 7.1528  × 10 = 71.5 / 100
+
+──────────────────────────────────────────────────────────────────────
+  STEP 6 — STOP FACTORS
+──────────────────────────────────────────────────────────────────────
+
+  No stop factors triggered.
+
+──────────────────────────────────────────────────────────────────────
+  STEP 7 — FAIR VALUE ESTIMATE
+──────────────────────────────────────────────────────────────────────
+
+  Current price   : $93.98
+  Fair value      : $110.00
+  Upside/downside : +17.0% upside
+  Status          : 🟢 Undervalued
+
+  Model breakdown:
+    Analyst         $  110.00  weight=100.00%
+
+  Model assumptions:
+    • Analyst target: $110.00 (n=19 analysts, confidence=1.03x)
+
+──────────────────────────────────────────────────────────────────────
+  STEP 8 — FINAL RESULT
+──────────────────────────────────────────────────────────────────────
+
+  Type            : Financial  (confidence 60%)
+  Rating             : Good Candidate
+  Overall score      : 71.5 / 100
+  Investment Quality : Buy on Limit
+  Entry Decision     : Accumulate on Pullback
+
+  Short-term      : 64.8 / 100
+  Medium-term     : 69.6 / 100
+  Long-term       : 74.7 / 100
+
+  Block scores summary:
+    quality       7.4 / 10  [███████░░░]
+    valuation     6.5 / 10  [██████░░░░]
+    technical     5.2 / 10  [█████░░░░░]
+    risk          7.6 / 10  [████████░░]
+    style_fit     10.0 / 10  [██████████]
+
+  Analyst notes:
+    • [quality] Financial sector: gross margin, FCF margin, CFO/NI and accruals not applicable
+    • [quality] strong revenue growth 28%
+    • [valuation] P/E 7 — cheap
+    • [valuation] P/TBV 1.36
+    • [technical] price above MA200 — bullish structure
+    • [technical] underperforming SPY by 13% (3m)
+    • [risk] beta 0.3 — low market sensitivity
+    • [risk] share buybacks (-1.8%/yr avg — positive)
+
+──────────────────────────────────────────────────────────────────────
+  STEP 9 — TRADE RECOMMENDATION
+──────────────────────────────────────────────────────────────────────
+
+  🟡 ACCUMULATE ON PULLBACK — ждём лучшей цены
+
+  Текущая цена   : $93.98
+  Лимитная цена  : $91.16  (-3.0% от текущей)
+  Ждём           : до 3 календарных дней
+  Горизонт       : long (1–5 years)  (макс. 24 мес.)
+  Цель выхода    : $110.00
+  Стоп-лосс      : $79.31
+  Потенциал      : +20.7%  /  риск -13.0%  (от лимитной цены)
+  R/R ratio      : 1.6 : 1
+
+  Обоснование:
+    • Score 72/100 — good but not exceptional; wait for 3% dip
+    • Score 72/100 — good, but entry gate not passed:
+    •   ✗ R/R 1.3 : 1 below minimum 1.5 : 1
+    • Exit target: analyst consensus $110.00
+    • Stop loss: 13% hard stop at $81.76
+    • Limit 3.0% below current price — keep order 3 calendar days (ATR-14 2.19%/day → estimated 2.1 trading days to fill)
+
+──────────────────────────────────────────────────────────────────────
+  STEP 10 — AI CONTEXT REVIEW PROMPT
+──────────────────────────────────────────────────────────────────────
+
+  Скопируй блок ниже и отправь в AI-модель (без доступа к интернету).
+  AI проверит решение и даст contextual review на основе наших данных.
+
+======================================================================
+You are an institutional equity research analyst performing a CONTEXTUAL REVIEW.
+You have NO internet access. Work ONLY with the structured data provided below.
+
+Your role is to complement (not override) a deterministic quantitative scoring model.
+The model has already done the math. You provide the CONTEXTUAL LAYER:
+
+1. VALIDATE — Does the quant decision (Buy on Limit) make sense given the data?
+2. DISTORTIONS — Are any metrics likely distorted? (one-off events, cyclical peaks,
+   accounting artefacts, M&A noise, split contamination, base-effect EPS jumps,
+   elevated accruals, CapEx supercycles compressing FCF)
+3. NARRATIVE RISKS — Key risks NOT visible in the numbers (sector dynamics,
+   product concentration, regulatory exposure, competitive threats by industry type)
+4. NARRATIVE TAILWINDS — Structural advantages that may justify a premium or
+   sustain above-average growth (platform effects, pricing power, TAM expansion,
+   moat signals: gross margin trend, FCF conversion, revenue CAGR)
+5. MODEL SPREAD — The fair value models show 0.0% spread between valuation models.
+   Comment on WHY they diverge and which anchor is more trustworthy here.
+   If dcf_range is available, comment on whether bear/bull range changes the thesis.
+6. CONFIDENCE ADJUSTMENT — Integer from -10 to +5 on the overall score.
+   DISCIPLINE RULES (strictly enforce):
+     • Default is 0. Only deviate if you have SPECIFIC evidence in the data.
+     • Negative (-1 to -5): visible risk the quant model underweights (e.g., elevated
+       accruals >5%, CapEx spiral reducing FCF, high short interest, sector headwinds).
+     • Strongly negative (-6 to -10): only for structural deterioration (NI/OCF split,
+       massive insider selling, regulatory crisis, product cliff).
+     • Positive (+1 to +3): clear moat expansion visible in margins + FCF conversion.
+     • Positive (+4 to +5): rare — exceptional quality AND valuation discount.
+     • NEVER positive just because growth is high or the company is well-known.
+
+Respond in EXACTLY this format (no extra sections):
+---
+VALIDATION: [1-2 sentences]
+DISTORTIONS: [bullet list, or "None detected"]
+NARRATIVE RISKS: [bullet list]
+NARRATIVE TAILWINDS: [bullet list, or "None significant"]
+MODEL SPREAD NOTE: [1-2 sentences]
+CONFIDENCE ADJUSTMENT: [integer -10..+5] — [one sentence justification citing specific data]
+SUMMARY: [2-3 sentences — your overall contextual verdict]
+---
+
+DATA:
+{
+  "ticker": "ACGL",
+  "company_type": "Financial",
+  "classification_confidence_pct": 60,
+  "sector": "Financial Services",
+  "industry": "Insurance - Diversified",
+  "data_quality": "good",
+  "scores": {
+    "overall": 71.5,
+    "quality": 7.4,
+    "valuation": 6.5,
+    "technical": 5.2,
+    "risk": 7.6,
+    "style_fit": 10.0
+  },
+  "horizon_scores": {
+    "short": 64.8,
+    "medium": 69.6,
+    "long": 74.7
+  },
+  "quant_decision": "Buy on Limit",
+  "market_data": {
+    "current_price": 93.98,
+    "market_cap_B": 32.84,
+    "pe_trailing": 7.23,
+    "pe_forward": 9.47,
+    "pe_hist_avg": 8.3,
+    "pe_hist_high": 8.3,
+    "pe_hist_low": 8.3,
+    "pe_vs_hist_avg_pct": -12.9,
+    "normalized_pe": 18.0,
+    "normalized_eps": 5.23,
+    "cashflow_anomaly": false,
+    "cashflow_anomaly_detail": null,
+    "data_quality_detail": {
+      "accounting": "reliable",
+      "cashflow": "sector_n_a",
+      "valuation": "reliable",
+      "historical": "full",
+      "sector_fit": "unsupported"
+    },
+    "beta": 0.33,
+    "dividend_yield_pct": null,
+    "analyst_target_median": 110.0,
+    "analyst_count": 19,
+    "recommendation": "buy",
+    "recommendation_mean": 2.25,
+    "short_ratio_days": 3.32,
+    "short_pct_float": 2.28,
+    "institutional_pct": 95.81,
+    "insider_pct": 2.62,
+    "split_info": "3:1 on 2018-06-21"
+  },
+  "financials_last_3yr": {
+    "revenue_growth_pct": [
+      41.83,
+      27.92,
+      14.27
+    ],
+    "gross_margin_pct": [],
+    "operating_margin_pct": [],
+    "net_margin_pct": [
+      32.59,
+      24.72,
+      22.07
+    ],
+    "roe_pct": [
+      24.21,
+      20.71,
+      18.17
+    ],
+    "debt_to_equity": [],
+    "fcf_B": []
+  },
+  "ttm": {
+    "revenue_B": 17.36,
+    "gross_margin_pct": null,
+    "operating_margin_pct": null,
+    "net_margin_pct": 23.09,
+    "fcf_margin_pct": null,
+    "fcf_B": null,
+    "net_income_B": 3.85,
+    "operating_cf_B": 5.17,
+    "cfo_ni_ratio": 1.35,
+    "accruals_pct_assets": -1.67
+  },
+  "fair_value": {
+    "current_price": 93.98,
+    "fair_value_composite": 110.0,
+    "upside_pct": 17.0,
+    "status": "Undervalued",
+    "model_spread_pct": 0.0,
+    "dcf_range": {
+      "bear": null,
+      "base": null,
+      "bull": null
+    },
+    "models": {
+      "Analyst": {
+        "value": 110.0,
+        "weight_pct": 100.0
+      }
+    },
+    "dcf_assumptions": [],
+    "analyst_assumptions": [
+      "Analyst target: $110.00 (n=19 analysts, confidence=1.03x)"
+    ]
+  },
+  "stop_factors": [],
+  "trade_recommendation": {
+    "action": "Accumulate on Pullback",
+    "horizon": "long (1–5 years)",
+    "hold_months": 24,
+    "limit_price": 91.16,
+    "target_price": 110.0,
+    "stop_price": 79.31,
+    "rationale": [
+      "Score 72/100 — good but not exceptional; wait for 3% dip",
+      "Score 72/100 — good, but entry gate not passed:",
+      "  ✗ R/R 1.3 : 1 below minimum 1.5 : 1",
+      "Exit target: analyst consensus $110.00",
+      "Stop loss: 13% hard stop at $81.76",
+      "Limit 3.0% below current price — keep order 3 calendar days (ATR-14 2.19%/day → estimated 2.1 trading days to fill)"
+    ]
+  },
+  "key_quant_notes": [
+    "[quality] Financial sector: gross margin, FCF margin, CFO/NI and accruals not applicable",
+    "[quality] strong revenue growth 28%",
+    "[valuation] P/E 7 — cheap",
+    "[valuation] P/TBV 1.36",
+    "[technical] price above MA200 — bullish structure",
+    "[technical] underperforming SPY by 13% (3m)",
+    "[risk] beta 0.3 — low market sensitivity",
+    "[risk] share buybacks (-1.8%/yr avg — positive)"
+  ],
+  "capex_trend": {
+    "capex_ttm_B": null,
+    "capex_B_last3yr": [],
+    "capex_to_revenue_pct_ttm": null
+  },
+  "moat_signals": {
+    "gross_margin_5yr_avg_pct": null,
+    "gross_margin_trend": "stable_or_contracting",
+    "operating_margin_5yr_avg_pct": null,
+    "fcf_conversion_3yr_avg": 1.41,
+    "revenue_cagr_5yr_pct": 19.33
+  }
+}
+======================================================================
+
+══════════════════════════════════════════════════════════════════════

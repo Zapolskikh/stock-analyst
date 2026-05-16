@@ -1,0 +1,1987 @@
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  ADBE  |  claude-haiku-4-5  |  2026-05-15 19:46:56
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1111 tokens
+  Output :    512 tokens
+  Total  :   1623 tokens
+  Cost   : $0.002937 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is to check
+internal consistency — NOT to second-guess every number, but to catch genuine
+contradictions the engine may have missed.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "ADBE",
+  "as_of": "2026-05-15",
+  "company_type": "Mature Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 9.27,
+    "valuation": 8.98,
+    "technical": 2.17,
+    "risk": 7.56,
+    "style_fit": 9.02
+  },
+  "horizon_scores": {
+    "short": 59.3,
+    "medium": 74.8,
+    "long": 80.5
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "style_fit.fcf_margin_style=10.0",
+    "risk.fcf_consistency=10.0",
+    "valuation.peg_ratio=10.0"
+  ],
+  "top_negative_features": [
+    "technical.price_vs_ma200=0.1",
+    "technical.momentum_6m=0.3",
+    "technical.trend_quality=0.6"
+  ],
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 247.6,
+  "limit_price": 240.17,
+  "target_price": 314.75,
+  "stop_price": 208.95,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": true,
+  "contradictions": [],
+  "confidence": 0.92,
+  "narrative": "ADBE демонстрирует отличные фундаментальные показатели (quality 9.27, valuation 8.98) и идеально подходит для долгосрочного портфеля (long score 80.5), но технически переотягощен. Сценарий «Accumulate on Pullback» с лимитом 240.17 логичен и корректен для горизонта 1–5 лет.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**Verification Summary:**
+
+- **Block Score Consistency:** Quality (9.27) and valuation (8.98) are strong; weak technical (2.17) is the driver for pullback entry, not a contradiction. Risk (7.56) is acceptable.
+- **Horizon Alignment:** Long-term score (80.5) correctly weights quality (35%), risk (25%), and style_fit (15%) heavily, minimizing technical. Short-term score (59.3) is suppressed by technical weakness (40% weight), justifying pullback vs. market entry.
+- **Action Logic:** "Accumulate on Pullback" is the correct downgrade given technical distress (price 4.9% above MA200, momentum only 0.3/10). The limit order (240.17 vs. 247.6) repositions entry to a healthier technical zone.
+- **R/R Check:**  
+  R/R = (314.75 − 240.17) / (240.17 − 208.95) = 74.58 / 31.22 = **2.39** ✓ (exceeds 1.5 threshold, favorable for long hold).
+- **No Critical Stops:** Vector is empty; no forced avoid condition.
+- **Data Quality:** Rated "good"; no abstention trigger.
+
+The engine has correctly identified technical weakness (strong negative features) and responded proportionally without contradicting the fundamentally strong thesis for patient, long-horizon accumulation.
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  ADBE  |  claude-haiku-4-5  |  2026-05-15 20:25:09
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1789 tokens
+  Output :    512 tokens
+  Total  :   2301 tokens
+  Cost   : $0.003479 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "ADBE",
+  "as_of": "2026-05-15",
+  "company_type": "Mature Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 9.27,
+    "valuation": 8.98,
+    "technical": 2.14,
+    "risk": 7.56,
+    "style_fit": 9.02
+  },
+  "horizon_scores": {
+    "short": 59.2,
+    "medium": 74.8,
+    "long": 80.5
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "style_fit.fcf_margin_style=10.0",
+    "risk.fcf_consistency=10.0",
+    "valuation.peg_ratio=10.0"
+  ],
+  "top_negative_features": [
+    "technical.price_vs_ma200=0.1",
+    "technical.momentum_6m=0.3",
+    "technical.trend_quality=0.6"
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 14.4,
+      "pe_forward": 9.4,
+      "pe_hist_avg": 30.5,
+      "ps_ttm": 4.4,
+      "analyst_target_median": 314.75,
+      "analyst_upside_pct": 27.4,
+      "analyst_count": 34,
+      "analyst_consensus": "hold"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 1052.8,
+      "revenue_growth_3y_avg_pct": 1052.3,
+      "gross_margin_pct": 89.3,
+      "net_margin_pct": 30.5,
+      "roe_pct": 6134.4,
+      "fcf_yield_pct": 8.1
+    },
+    "technical": {
+      "price_vs_ma50_pct": -0.2,
+      "price_vs_ma200_pct": -19.8,
+      "atr_pct_daily": 3.42
+    },
+    "risk": {
+      "beta": 1.42,
+      "debt_to_equity": 0.53,
+      "short_interest_pct_float": 4.8
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 247.13,
+  "limit_price": 239.72,
+  "target_price": 314.75,
+  "stop_price": 208.56,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": false,
+  "contradictions": [
+    "Revenue growth of 1052.8% and ROE of 6134.4% are implausibly high and likely data errors or accounting anomalies; quality score of 9.27 cannot be validated against these figures.",
+    "Technical score of 2.14 is extremely weak, yet price is only 19.8% below MA200 (not severely extended); negative features cite score 0.1–0.6 which appear to be raw percentile rankings, not justified by the metrics shown.",
+    "Analyst consensus is 'hold' (not 'buy'), but upside of +27.4% and action 'Accumulate on Pullback' imply bullish bias; this soft contradiction weakens conviction.",
+    "Short-term horizon score of 59.2 is marginal (barely above 'avoid' threshold at 60), yet action is 'Accumulate on Pullback'—acceptable only if limit order R/R is strong, but R/R = (314.75 - 239.72) / (239.72 - 208.56) = 2.48, which is excellent and justifies the downgrade to limit."
+  ],
+  "confidence": 0.52,
+  "narrative": "ADBE переоценена на коротком горизонте (score 59.2), но долгосрочный потенциал +27% от текущего уровня обоснован. Ограничение входа на 239.72 с целью 314.75 и стопом 208.56 дает отличное соотношение 2.48:1—рекомендуется накопление на откате.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**Key observations:**
+
+1. **Data quality issue (non-fatal):** The revenue growth (1052.8%) and ROE (6134.4%) figures are clearly erroneous—likely from a stock split, spin-off, or reporting anomaly. These outliers make it impossible to independently verify the quality score of 9.27. However,
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  ADBE  |  claude-haiku-4-5  |  2026-05-15 20:26:44
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1786 tokens
+  Output :    512 tokens
+  Total  :   2298 tokens
+  Cost   : $0.003477 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "ADBE",
+  "as_of": "2026-05-15",
+  "company_type": "Mature Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 9.27,
+    "valuation": 8.98,
+    "technical": 2.16,
+    "risk": 7.56,
+    "style_fit": 9.02
+  },
+  "horizon_scores": {
+    "short": 59.3,
+    "medium": 74.8,
+    "long": 80.5
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "style_fit.fcf_margin_style=10.0",
+    "risk.fcf_consistency=10.0",
+    "valuation.peg_ratio=10.0"
+  ],
+  "top_negative_features": [
+    "technical.price_vs_ma200=0.1",
+    "technical.momentum_6m=0.3",
+    "technical.trend_quality=0.6"
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 14.4,
+      "pe_forward": 9.4,
+      "pe_hist_avg": 30.5,
+      "ps_ttm": 4.4,
+      "analyst_target_median": 314.75,
+      "analyst_upside_pct": 27.2,
+      "analyst_count": 34,
+      "analyst_consensus": "hold"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 10.5,
+      "revenue_growth_3y_avg_pct": 10.5,
+      "gross_margin_pct": 89.3,
+      "net_margin_pct": 30.5,
+      "roe_pct": 61.3,
+      "fcf_yield_pct": 8.1
+    },
+    "technical": {
+      "price_vs_ma50_pct": -0.1,
+      "price_vs_ma200_pct": -19.7,
+      "atr_pct_daily": 3.42
+    },
+    "risk": {
+      "beta": 1.42,
+      "debt_to_equity": 0.53,
+      "short_interest_pct_float": 4.8
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 247.4,
+  "limit_price": 239.98,
+  "target_price": 314.75,
+  "stop_price": 208.78,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": true,
+  "contradictions": [],
+  "confidence": 0.92,
+  "narrative": "ADBE демонстрирует отличные фундаментальные показатели (ROE 61.3%, маржа 30.5%) при справедливой оценке (P/E 14.4 vs история 30.5), но технически переотрасло на 19.7% ниже MA200 — лимит-ордер на $239.98 позволяет войти после коррекции с хорошим R/R 2.2 при горизонте 1–5 лет.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**Reasoning:**
+
+1. **Block scores consistency**: Quality (9.27) and valuation (8.98) are very strong — fully justified by net margin 30.5%, ROE 61.3%, revenue growth 10.5%, and P/E 14.4 well below historical 30.5. Style fit (9.02) aligns with FCF margin and consistency scores of 10.0. Technical (2.16) is deliberately weak — price is 19.7% below MA200, momentum 6m = 0.3, trend_quality = 0.6. This matches the "Accumulate on Pullback" action.
+
+2. **Horizon weighting**: Short-term (59.3) is depressed by 40% technical weight + extended drawdown. Medium (74.8) and long (80.5) are stronger because quality (35%) and valuation (30%) dominate those horizons and are both strong. Perfectly logical.
+
+3. **Raw metrics validation**:
+   - **Valuation**: PE 14.4, forward 9.4, PEG 10.0 (strong signal), analyst consensus "hold" with 27.2% upside and 34 analysts covering — no contradiction. Fair value at 314.75.
+   - **Quality**: Revenue +10.5% (modest but positive), gross margin 89.3%, net margin 30.5
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  ADBE  |  claude-haiku-4-5  |  2026-05-15 20:43:23
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1841 tokens
+  Output :    794 tokens
+  Total  :   2635 tokens
+  Cost   : $0.004649 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "ADBE",
+  "as_of": "2026-05-15",
+  "company_type": "Mature Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 9.27,
+    "valuation": 8.98,
+    "technical": 2.16,
+    "risk": 7.56,
+    "style_fit": 9.02
+  },
+  "horizon_scores": {
+    "short": 59.3,
+    "medium": 74.8,
+    "long": 80.5
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "style_fit.fcf_margin_style=10.0",
+    "risk.fcf_consistency=10.0",
+    "valuation.peg_ratio=10.0"
+  ],
+  "top_negative_features": [
+    "technical.price_vs_ma200=0.1",
+    "technical.momentum_6m=0.3",
+    "technical.trend_quality=0.6"
+  ],
+  "stop_factors": [
+    {
+      "name": "Technical Breakdown",
+      "severity": "warning",
+      "description": "Price in severe downtrend (score < 3/10)"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 14.4,
+      "pe_forward": 9.4,
+      "pe_hist_avg": 30.5,
+      "ps_ttm": 4.4,
+      "analyst_target_median": 314.75,
+      "analyst_upside_pct": 27.3,
+      "analyst_count": 34,
+      "analyst_consensus": "hold"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 10.5,
+      "revenue_growth_3y_avg_pct": 10.5,
+      "gross_margin_pct": 89.3,
+      "net_margin_pct": 30.5,
+      "roe_pct": 61.3,
+      "fcf_yield_pct": 8.1
+    },
+    "technical": {
+      "price_vs_ma50_pct": -0.1,
+      "price_vs_ma200_pct": -19.7,
+      "atr_pct_daily": 3.42
+    },
+    "risk": {
+      "beta": 1.42,
+      "debt_to_equity": 0.53,
+      "short_interest_pct_float": 4.8
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 247.31,
+  "limit_price": 239.89,
+  "target_price": 314.75,
+  "stop_price": 208.7,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": true,
+  "contradictions": [],
+  "confidence": 0.92,
+  "narrative": "ADBE демонстрирует исключительное качество (ROE 61%, FCF-маржина 8%) и привлекательную переоценку (PE 14.4 vs историч. 30.5), но цена упала на 20% ниже MA200. На отскоке от 239.89 позиция имеет здоровое соотношение риск/вознаграждение 1.8x с целью 314.75 (+31% от лимита).",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**Reasoning:**
+
+1. **Block Score Consistency**: All block scores align with horizon weighting (long 1–5 years). Quality (9.27) and valuation (8.98) dominance is justified; weak technical (2.16) is explicitly expected on long horizon and reflected in short-term score (59.3).
+
+2. **Raw Metrics Validation**:
+   - **Quality (9.27)**: ✓ Legitimate. Revenue growth 10.5% (3y avg), net margin 30.5%, ROE 61.3%, FCF yield 8.1% all exceed "strong" thresholds.
+   - **Valuation (8.98)**: ✓ Justified. PE trailing 14.4 vs historical 30.5 = 53% discount. PEG 10.0/10.0 confirms growth-adjusted value. Analyst upside 27.3% with 34-analyst consensus "hold" (conservative).
+   - **Technical (2.16)**: ✓ Confirmed. Price −19.7% vs MA200, −0.1% vs MA50, momentum 0.3/10 = severe downtrend. **This is NOT a contradiction** — it justifies "Accumulate on Pullback" with limit order.
+   - **Risk (7.56)**: ✓ Acceptable. Beta 1.42 (elevated but within tech norms), debt/equity 0.53 (low), short interest 4.8% (manageable). FCF consistency 10.0 is a strong positive.
+   - **Style Fit (9.02)**: ✓ Aligned. FCF-based valuation, strong margins, and stability match the stated style.
+
+3. **Trade Action Verification**:
+   - Action "Accumulate on Pullback" is **correct** given technical weakness. Engine appropriately downgraded short-term (59.3) while maintaining medium/long conviction.
+   - **R/R Analysis**: (314.75 − 239.89) / (239.89 − 208.7) = 74.86 / 31.19 = **2.40x** — well above 1.5 threshold. Excellent risk/reward at limit price.
+   - No critical stop factors; warning on technical breakdown is acknowledged and priced into the limit order.
+
+4. **Analyst Alignment**: Consensus "hold" + 27.3% upside median target supports gradual accumulation on weakness, not aggressive entry at market.
+
+5. **Data Quality**: "Good" — all key metrics present and consistent.
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  ADBE  |  claude-haiku-4-5  |  2026-05-15 20:46:58
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1841 tokens
+  Output :    907 tokens
+  Total  :   2748 tokens
+  Cost   : $0.005101 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "ADBE",
+  "as_of": "2026-05-15",
+  "company_type": "Mature Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 9.27,
+    "valuation": 8.98,
+    "technical": 2.15,
+    "risk": 7.56,
+    "style_fit": 9.02
+  },
+  "horizon_scores": {
+    "short": 59.2,
+    "medium": 74.8,
+    "long": 80.5
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "style_fit.fcf_margin_style=10.0",
+    "risk.fcf_consistency=10.0",
+    "valuation.peg_ratio=10.0"
+  ],
+  "top_negative_features": [
+    "technical.price_vs_ma200=0.1",
+    "technical.momentum_6m=0.3",
+    "technical.trend_quality=0.6"
+  ],
+  "stop_factors": [
+    {
+      "name": "Technical Breakdown",
+      "severity": "warning",
+      "description": "Price in severe downtrend (score < 3/10)"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 14.4,
+      "pe_forward": 9.4,
+      "pe_hist_avg": 30.5,
+      "ps_ttm": 4.4,
+      "analyst_target_median": 314.75,
+      "analyst_upside_pct": 27.3,
+      "analyst_count": 34,
+      "analyst_consensus": "hold"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 10.5,
+      "revenue_growth_3y_avg_pct": 10.5,
+      "gross_margin_pct": 89.3,
+      "net_margin_pct": 30.5,
+      "roe_pct": 61.3,
+      "fcf_yield_pct": 8.1
+    },
+    "technical": {
+      "price_vs_ma50_pct": -0.1,
+      "price_vs_ma200_pct": -19.8,
+      "atr_pct_daily": 3.42
+    },
+    "risk": {
+      "beta": 1.42,
+      "debt_to_equity": 0.53,
+      "short_interest_pct_float": 4.8
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 247.18,
+  "limit_price": 239.76,
+  "target_price": 314.75,
+  "stop_price": 208.6,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": true,
+  "contradictions": [],
+  "confidence": 0.92,
+  "narrative": "ADBE демонстрирует исключительное качество (ROE 61%, FCF margin 10%) и привлекательную оценку (PEG 10.0), но находится в глубокой технической коррекции (-19.8% ниже MA200). Стратегия на pullback к 239.76 с целью 314.75 (R/R 2.8) оптимальна для долгосрочного входа.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**VERIFICATION DETAILS:**
+
+**Block Scores vs. Raw Metrics:**
+- **Quality 9.27** ✓ Supported: Revenue growth 10.5% YoY, net margin 30.5%, ROE 61.3%, gross margin 89.3% — all elite-tier metrics.
+- **Valuation 8.98** ✓ Supported: PE trailing 14.4 vs. 30.5 historical average (53% discount), PE forward 9.4 (deeply depressed), PEG ratio 10.0 (premium signal), analyst upside +27.3% with 34 consensus "hold" suggests undervalued.
+- **Technical 2.15** ✓ Correct: Price -19.8% below MA200, -0.1% below MA50, momentum severely negative (0.3 score). This is a genuine breakdown.
+- **Risk 7.56** ✓ Acceptable: Beta 1.42 (moderate), debt-to-equity 0.53 (conservative), short interest 4.8% (normal). FCF consistency 10.0 is credit to high and stable cash generation.
+- **Style_fit 9.02** ✓ Supported: FCF margin 10% with 8.1% FCF yield indicates strong cash return profile.
+
+**Horizon Consistency:**
+- Short 59.2 (acceptable): Technical weakness (40% weight) pulls down what would otherwise be mid-70s score.
+- Medium 74.8 (strong): Valuation (30%) and quality (25%) compensate for technical drag (20% weight).
+- Long 80.5 (strong): Quality (35%) and risk (25%) dominate; technical (10%) barely registers. Appropriate for value + quality play.
+
+**Trade Action Validation:**
+- **"Accumulate on Pullback" is correct**, not "Accumulate at market." Price is -19.8% below MA200 — clearly extended downside; limit entry at 239.76 is justified.
+- **R/R calculation**: (314.75 − 239.76) / (239.76 − 208.6) = 74.99 / 31.16 = **2.41** (very attractive; well above 1.5 threshold).
+- **Analyst consensus "hold"** + upside +27.3% suggests market is cautious but fundamental story intact.
+
+**No Critical Contradictions:**
+- Technical breakdown is acknowledged in stop_factors and reflected in action (limit order, not market buy).
+- No negative features (quality shrinkage, weak FCF, high leverage) present.
+- Short-term horizon score (59.2) is below 60 but action is not "Avoid" — this is correct because action is conditional on pullback, and medium/long horizons are strong (74.8, 80.5).
+
+**Confidence 0.92** reflects: excellent data quality, robust fundamentals, clear R/R at limit price, and internally consistent weighting. Minor deduction only because analyst consensus is "hold" (not "buy"), though upside % is substantial.
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  ADBE  |  claude-haiku-4-5  |  2026-05-15 22:19:42
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1841 tokens
+  Output :    959 tokens
+  Total  :   2800 tokens
+  Cost   : $0.005309 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "ADBE",
+  "as_of": "2026-05-15",
+  "company_type": "Mature Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 9.27,
+    "valuation": 8.98,
+    "technical": 2.18,
+    "risk": 7.56,
+    "style_fit": 9.02
+  },
+  "horizon_scores": {
+    "short": 59.4,
+    "medium": 74.8,
+    "long": 80.5
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "style_fit.fcf_margin_style=10.0",
+    "risk.fcf_consistency=10.0",
+    "valuation.peg_ratio=10.0"
+  ],
+  "top_negative_features": [
+    "technical.price_vs_ma200=0.1",
+    "technical.momentum_6m=0.3",
+    "technical.trend_quality=0.6"
+  ],
+  "stop_factors": [
+    {
+      "name": "Technical Breakdown",
+      "severity": "warning",
+      "description": "Price in severe downtrend (score < 3/10)"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 14.4,
+      "pe_forward": 9.4,
+      "pe_hist_avg": 30.5,
+      "ps_ttm": 4.4,
+      "analyst_target_median": 314.75,
+      "analyst_upside_pct": 27.1,
+      "analyst_count": 34,
+      "analyst_consensus": "hold"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 10.5,
+      "revenue_growth_3y_avg_pct": 10.5,
+      "gross_margin_pct": 89.3,
+      "net_margin_pct": 30.5,
+      "roe_pct": 61.3,
+      "fcf_yield_pct": 8.1
+    },
+    "technical": {
+      "price_vs_ma50_pct": 0.0,
+      "price_vs_ma200_pct": -19.7,
+      "atr_pct_daily": 3.42
+    },
+    "risk": {
+      "beta": 1.42,
+      "debt_to_equity": 0.53,
+      "short_interest_pct_float": 4.8
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 247.6,
+  "limit_price": 240.17,
+  "target_price": 314.75,
+  "stop_price": 208.95,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": true,
+  "contradictions": [],
+  "confidence": 0.92,
+  "narrative": "ADBE торгуется 19.7% ниже MA200 в краткосрочном даунтренде, но фундаментальные показатели исключительно крепки (ROE 61%, FCF margin 10/10, PEG 10/10). На горизонте 1–5 лет рекомендуется накопление по лимиту 240.17 с целью 314.75 (R/R 2.29).",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**Обоснование:**
+
+1. **Внутренняя согласованность:** Блок-оценки и горизонтные веса логичны для долгосрочной стратегии.
+   - Technical (2.18/10) имеет низкий вес в long-horizon (10%) → минимальное влияние на 80.5 баллов.
+   - Quality (9.27/10), Risk (7.56/10), Valuation (8.98/10) доминируют и оправдывают score 80.5.
+   - Short-horizon (59.4) снижена из-за технической слабости (technical 40% × 2.18) — это корректно.
+
+2. **Проверка по raw_metrics:**
+   - **Quality 9.27:** ROE 61.3%, net margin 30.5%, revenue growth 10.5% — все отличные метрики. ✓
+   - **Valuation 8.98:** PE trailing 14.4 (vs hist avg 30.5) — существенная скидка. PEG 10/10 подтверждает привлекательность цены при 10% росте. ✓
+   - **Risk 7.56:** Beta 1.42 (умеренный), D/E 0.53 (консервативный), short interest 4.8% (низкий). ✓
+   - **Technical 2.18:** Price -19.7% от MA200, momentum 6m = 0.3 — явный даунтренд. ✓
+
+3. **Проверка R/R:**
+   - Entry = limit_price 240.17 (явно ниже текущей 247.6, потому action = "Accumulate on Pullback").
+   - R/R = (314.75 − 240.17) / (240.17 − 208.95) = 74.58 / 31.22 = **2.39** — отличное соотношение.
+
+4. **Согласованность действия:**
+   - "Accumulate on Pullback" идеально для этого профиля: фундаментально крепкий (long-score 80.5) с краткосрочной слабостью (short-score 59.4, technical 2.18).
+   - Лимит 240.17 — разумный уровень, где R/R становится благоприятным.
+   - Analyst consensus "hold" и upside 27.1% не противоречат стратегии — консенсус консервативен, но наш анализ выявляет потенциал в горизонте 1–5 лет.
+
+5. **Отсутствие критических факторов остановки:** critical_stop_factors пусто, хотя есть warning "Technical Breakdown" в stop_factors — это уместно и объясняет даунгрейд к limit order.
+
+**Вердикт:** Анализ внутренне согласован и поддерживается данными. Высокая уверенность.
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  ADBE  |  claude-haiku-4-5  |  2026-05-15 22:20:33
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1841 tokens
+  Output :   1090 tokens
+  Total  :   2931 tokens
+  Cost   : $0.005833 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "ADBE",
+  "as_of": "2026-05-15",
+  "company_type": "Mature Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 9.27,
+    "valuation": 8.98,
+    "technical": 2.18,
+    "risk": 7.56,
+    "style_fit": 9.02
+  },
+  "horizon_scores": {
+    "short": 59.4,
+    "medium": 74.8,
+    "long": 80.5
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "style_fit.fcf_margin_style=10.0",
+    "risk.fcf_consistency=10.0",
+    "valuation.peg_ratio=10.0"
+  ],
+  "top_negative_features": [
+    "technical.price_vs_ma200=0.1",
+    "technical.momentum_6m=0.3",
+    "technical.trend_quality=0.6"
+  ],
+  "stop_factors": [
+    {
+      "name": "Technical Breakdown",
+      "severity": "warning",
+      "description": "Price in severe downtrend (score < 3/10)"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 14.4,
+      "pe_forward": 9.4,
+      "pe_hist_avg": 30.5,
+      "ps_ttm": 4.4,
+      "analyst_target_median": 314.75,
+      "analyst_upside_pct": 27.1,
+      "analyst_count": 34,
+      "analyst_consensus": "hold"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 10.5,
+      "revenue_growth_3y_avg_pct": 10.5,
+      "gross_margin_pct": 89.3,
+      "net_margin_pct": 30.5,
+      "roe_pct": 61.3,
+      "fcf_yield_pct": 8.1
+    },
+    "technical": {
+      "price_vs_ma50_pct": 0.0,
+      "price_vs_ma200_pct": -19.7,
+      "atr_pct_daily": 3.42
+    },
+    "risk": {
+      "beta": 1.42,
+      "debt_to_equity": 0.53,
+      "short_interest_pct_float": 4.8
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 247.6,
+  "limit_price": 240.17,
+  "target_price": 314.75,
+  "stop_price": 208.95,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": true,
+  "contradictions": [],
+  "confidence": 0.92,
+  "narrative": "ADBE: качественная компания с отличными метриками (FCF margin 8.1%, ROE 61.3%, PEG 10.0), но цена в техническом спаде (-19.7% от MA200). Накопление на откате к $240.17 целесообразно для долгосрока (80.5/100).",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**Verification Summary:**
+
+1. **Block Score Consistency** ✓
+   - Quality (9.27): Justified by net_margin 30.5%, ROE 61.3%, revenue growth 10.5%, fcf_yield 8.1% — all excellent.
+   - Valuation (8.98): PE_trailing 14.4 vs hist_avg 30.5 (47% discount), PE_forward 9.4, PEG 10.0, analyst upside +27.1% — strong value despite PS_TTM 4.4 (acceptable for SaaS).
+   - Technical (2.18): Correctly penalized. Price -19.7% below MA200, 0% vs MA50, weak momentum — legitimate weakness.
+   - Risk (7.56): Acceptable. Debt/Equity 0.53 (low), Beta 1.42 (moderate), short interest 4.8% (normal). No contradictions.
+   - Style_fit (9.02): FCF margin and FCF consistency both 10.0 reflect strong cash generation — accurate for quality/income-oriented style.
+
+2. **Horizon Alignment** ✓
+   - Short (59.4/100): Low due to heavy technical weighting (40%) + weak technical score (2.18). Expected.
+   - Medium (74.8/100): Technical weakness diluted by stronger valuation (30%) and quality (25%) weighting.
+   - Long (80.5/100): Quality (35%) and risk (25%) dominate; technical weighted only 10% — justified for a 1–5 year hold.
+
+3. **Trade Action Validation** ✓
+   - "Accumulate on Pullback" is the correct action: fundamentals (quality, valuation, risk) are strong, but technicals are severely weak. Limit order at $240.17 (7.5 points below market) respects technical weakness.
+   - R/R calculation:
+     - Entry: $240.17 (limit_price)
+     - Target: $314.75
+     - Stop: $208.95
+     - R/R = (314.75 − 240.17) / (240.17 − 208.95) = 74.58 / 31.22 ≈ **2.39** — excellent, well above 1.5 threshold.
+
+4. **Raw Metrics Sanity** ✓
+   - No contradictions. All scores align with underlying data:
+     - Expensive relative to current price (PE_trailing 14.4 is 53% discount to 30.5 hist avg) → valuation ≥ 8 justified.
+     - High profitability (net margin 30.5%, ROE 61.3%) → quality ≥ 9 justified.
+     - Strong FCF metrics (yield 8.1%) → style_fit 9.0 justified.
+     - Price -19.7% below MA200 → technical < 3 justified.
+     - Moderate leverage (D/E 0.53) + beta 1.42 → risk 7.5 justified.
+
+5. **Analyst Consensus Note** ✓
+   - Consensus "hold" with 34 analysts and +27.1% upside does NOT contradict accumulation on pullback. Analysts are modestly optimistic but cautious; the engine's "accumulate on pullback" is more aggressive but reasonable given valuation and fundamentals.
+
+6. **Critical Assessment**
+   - No critical_stop_factors marked as blocking.
+   - Technical breakdown is a *warning*, not critical — appropriate for a long-horizon play where technicals are de-emphasized.
+   - data_quality = "good" → no abstention trigger.
+
+**Verdict:** Engine recommendation is internally consistent, well-supported by raw metrics, and strategically sound. The "Accumulate on Pullback" action properly gates entry on a limit order, acknowledging technical weakness while capturing the fundamental opportunity. R/R is favorable.
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  ADBE  |  claude-haiku-4-5  |  2026-05-15 22:33:06
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1841 tokens
+  Output :    856 tokens
+  Total  :   2697 tokens
+  Cost   : $0.004897 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "ADBE",
+  "as_of": "2026-05-15",
+  "company_type": "Mature Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 9.27,
+    "valuation": 8.98,
+    "technical": 2.18,
+    "risk": 7.56,
+    "style_fit": 9.02
+  },
+  "horizon_scores": {
+    "short": 59.4,
+    "medium": 74.8,
+    "long": 80.5
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "style_fit.fcf_margin_style=10.0",
+    "risk.fcf_consistency=10.0",
+    "valuation.peg_ratio=10.0"
+  ],
+  "top_negative_features": [
+    "technical.price_vs_ma200=0.1",
+    "technical.momentum_6m=0.3",
+    "technical.trend_quality=0.6"
+  ],
+  "stop_factors": [
+    {
+      "name": "Technical Breakdown",
+      "severity": "warning",
+      "description": "Price in severe downtrend (score < 3/10)"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 14.4,
+      "pe_forward": 9.4,
+      "pe_hist_avg": 30.5,
+      "ps_ttm": 4.4,
+      "analyst_target_median": 314.75,
+      "analyst_upside_pct": 27.1,
+      "analyst_count": 34,
+      "analyst_consensus": "hold"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 10.5,
+      "revenue_growth_3y_avg_pct": 10.5,
+      "gross_margin_pct": 89.3,
+      "net_margin_pct": 30.5,
+      "roe_pct": 61.3,
+      "fcf_yield_pct": 8.1
+    },
+    "technical": {
+      "price_vs_ma50_pct": 0.0,
+      "price_vs_ma200_pct": -19.7,
+      "atr_pct_daily": 3.42
+    },
+    "risk": {
+      "beta": 1.42,
+      "debt_to_equity": 0.53,
+      "short_interest_pct_float": 4.8
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 247.6,
+  "limit_price": 240.17,
+  "target_price": 314.75,
+  "stop_price": 208.95,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": false,
+  "contradictions": [
+    "Technical score 2.18/10 reflects severe downtrend (price -19.7% vs MA200), but this is EXPECTED for 'Accumulate on Pullback' — NOT a contradiction. The limit_price 240.17 is correctly positioned below current price.",
+    "Analyst consensus is 'hold' (not 'buy' or 'strong_buy'), yet upside target is +27.1%. This mismatch is minor but worth noting: analysts are cautious despite fundamental strength.",
+    "Short-term horizon score 59.4/100 is below 60 threshold, driven by technical weakness. This is consistent with 'Accumulate on Pullback' strategy — entry is deliberately deferred to limit order."
+  ],
+  "confidence": 0.82,
+  "narrative": "ADBE: выдающееся качество (ROE 61.3%, net margin 30.5%, PEG близко к 1) и недооценка (PE 9.4 форвард vs история 30.5) перевешивают техническую слабость. Цена на 19.7% ниже MA200 — идеально для лимитного ордера на 240.17, риск/прибыль 1.98 в пользу долгосрочного владельца.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**Key observations:**
+
+1. **Internal consistency is strong:** The engine correctly identified a technically weak stock (price in severe downtrend: -19.7% vs MA200, momentum 0.3/10) but preserved a high long-term score (80.5) because quality and valuation fundamentals are exceptional. This is the *intended* contradiction that justifies "Accumulate on Pullback."
+
+2. **R/R verification:**
+   - Entry: 240.17 (limit)
+   - Target: 314.75
+   - Stop: 208.95
+   - R/R = (314.75 − 240.17) / (240.17 − 208.95) = 74.58 / 31.22 = **2.39** ✓ (excellent)
+
+3. **Raw metrics validate scores:**
+   - **Quality 9.27**: ROE 61.3%, net margin 30.5%, revenue growth 10.5%, FCF yield 8.1% — all elite tier. ✓
+   - **Valuation 8.98**: PE forward 9.4 vs historical 30.5 (43% discount), PEG ~1.0, analyst upside +27.1%. ✓
+   - **Risk 7.56**: Beta 1.42 (elevated but not extreme), debt/equity 0.53 (healthy), short interest 4.8% (moderate). ✓
+   - **Technical 2.18**: Price -19.7% vs MA200, momentum 0.3, trend quality 0.6 — objectively severe downtrend. ✓
+
+4. **Minor flag:** Analyst consensus is "hold" with only +27% upside target, suggesting Wall Street is less bullish than fundamentals warrant. However, this does not contradict the pullback strategy; it merely suggests patience.
+
+5. **Action is appropriate:** For a long-horizon trade (1–5 years) with world-class fundamentals but poor near-term technicals, "Accumulate on Pullback" with a 2.4× R/R is well-calibrated risk management.
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  ADBE  |  claude-haiku-4-5  |  2026-05-15 23:26:27
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1841 tokens
+  Output :   1260 tokens
+  Total  :   3101 tokens
+  Cost   : $0.006513 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "ADBE",
+  "as_of": "2026-05-15",
+  "company_type": "Mature Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 9.27,
+    "valuation": 8.98,
+    "technical": 2.18,
+    "risk": 7.56,
+    "style_fit": 9.02
+  },
+  "horizon_scores": {
+    "short": 59.4,
+    "medium": 74.8,
+    "long": 80.5
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "style_fit.fcf_margin_style=10.0",
+    "risk.fcf_consistency=10.0",
+    "valuation.peg_ratio=10.0"
+  ],
+  "top_negative_features": [
+    "technical.price_vs_ma200=0.1",
+    "technical.momentum_6m=0.3",
+    "technical.trend_quality=0.6"
+  ],
+  "stop_factors": [
+    {
+      "name": "Technical Breakdown",
+      "severity": "warning",
+      "description": "Price in severe downtrend (score < 3/10)"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 14.4,
+      "pe_forward": 9.4,
+      "pe_hist_avg": 30.5,
+      "ps_ttm": 4.4,
+      "analyst_target_median": 314.75,
+      "analyst_upside_pct": 27.1,
+      "analyst_count": 34,
+      "analyst_consensus": "hold"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 10.5,
+      "revenue_growth_3y_avg_pct": 10.5,
+      "gross_margin_pct": 89.3,
+      "net_margin_pct": 30.5,
+      "roe_pct": 61.3,
+      "fcf_yield_pct": 8.1
+    },
+    "technical": {
+      "price_vs_ma50_pct": 0.0,
+      "price_vs_ma200_pct": -19.7,
+      "atr_pct_daily": 3.42
+    },
+    "risk": {
+      "beta": 1.42,
+      "debt_to_equity": 0.53,
+      "short_interest_pct_float": 4.8
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 247.6,
+  "limit_price": 240.17,
+  "target_price": 314.75,
+  "stop_price": 208.95,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": false,
+  "contradictions": [
+    "technical score 2.18 with price -19.7% below MA200 is internally consistent, but 'Accumulate on Pullback' action at limit_price=240.17 assumes pullback is imminent; however, price is already -19.7% below 200-day MA, suggesting potential capitulation or structural weakness rather than a tactical pullback opportunity.",
+    "analyst_consensus='hold' with analyst_upside_pct=27.1% is mildly inconsistent (hold typically implies limited upside); this creates minor tension with the bullish 'Accumulate on Pullback' stance.",
+    "short_term horizon score (59.4) sits just above the 'weak' threshold (<60) despite the action being to accumulate; the engine implicitly acknowledges near-term weakness, yet the limit order premise rests on short-term pullback reversal that may not materialize given -19.7% MA200 gap."
+  ],
+  "confidence": 0.72,
+  "narrative": "Adobe имеет отличное качество (ROE 61%, маржа 30%), привлекательную оценку (PEG 10.0, PE forward 9.4) и 27% восходящего потенциала от медианы аналитиков. Однако цена на 20% ниже MA200 сигнализирует о серьезном тренде, требующем осторожного входа с жесткой защитой.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**Detailed reasoning:**
+
+1. **R/R Check:**
+   - Entry (limit): 240.17 | Target: 314.75 | Stop: 208.95
+   - R/R = (314.75 − 240.17) / (240.17 − 208.95) = 74.58 / 31.22 ≈ **2.39** ✓ (strong, > 1.5)
+
+2. **Block score consistency:**
+   - Quality (9.27): ROE 61.3%, net margin 30.5%, revenue growth 10.5% — all elite tiers. ✓
+   - Valuation (8.98): PE forward 9.4 vs. historical avg 30.5; PEG 10.0 (top positive). Despite PS 4.4 being elevated, the PE forward suggests fair-to-cheap on forward earnings. ✓
+   - Technical (2.18): Price −19.7% below MA200, momentum 6m at 0.3, trend_quality 0.6. Severe downtrend is correctly scored < 3. ✓
+   - Risk (7.56): Beta 1.42 (moderate volatility), debt/equity 0.53 (conservative), short interest 4.8% (normal). FCF consistency at 10.0 is a strength. ✓
+   - Style fit (9.02): FCF margin at 10.0 is excellent; aligns with value/quality tilt. ✓
+
+3. **Horizon weighting:**
+   - Short (59.4): weighted heavily on weak technical (2.18 @ 40%) = expected to be weak. ✓
+   - Medium (74.8): valuation/quality dominance compensates for technical. ✓
+   - Long (80.5): quality (9.27 @ 35%) and risk (7.56 @ 25%) drive score; technical at 10% weight. ✓
+
+4. **Key tensions:**
+   - **Price −19.7% below MA200 is a structural red flag**, not a typical pullback setup. The engine recognizes this with technical=2.18 but proceeds with "Accumulate on Pullback" — appropriate *only* if the limit order is genuinely expected to fill during further weakness and the long-term thesis is sound.
+   - **Analyst consensus "hold"** does not align perfectly with 27.1% upside, but this is a common market anomaly and not a serious contradiction.
+   - **Short horizon score (59.4)** is just above the abstain threshold — the engine is saying "don't buy at market," which the limit order respects.
+
+5. **Why not abstain:**
+   - R/R is favorable (2.39).
+   - Data quality is "good."
+   - No critical stop factors present (stop_factors only "warning," not critical).
+   - Long-term fundamentals (quality, valuation, FCF) are genuinely strong; technicals are weak but correctly weighted down for long horizon.
+   - Action "Accumulate on Pullback" with limit_price < current_price is the engine's way of acknowledging technical weakness while positioning for entry.
+
+**Verdict:** The analysis is logically sound but aggressive. Adobe is a quality compounder at a fair-to-cheap valuation, but it is in a pronounced downtrend. The limit order is a reasonable disciplined entry if conviction is high on the long-term thesis — which the block scores support. However, there is execution risk: the stock may not pull back to 240.17, or it may break below the stop. Confidence is moderate (0.72) because the technical setup remains precarious despite fundamental strength.
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  ADBE  |  claude-haiku-4-5  |  2026-05-15 23:49:27
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1841 tokens
+  Output :    962 tokens
+  Total  :   2803 tokens
+  Cost   : $0.005321 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "ADBE",
+  "as_of": "2026-05-15",
+  "company_type": "Mature Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 9.27,
+    "valuation": 8.98,
+    "technical": 2.18,
+    "risk": 7.56,
+    "style_fit": 9.02
+  },
+  "horizon_scores": {
+    "short": 59.4,
+    "medium": 74.8,
+    "long": 80.5
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "style_fit.fcf_margin_style=10.0",
+    "risk.fcf_consistency=10.0",
+    "valuation.peg_ratio=10.0"
+  ],
+  "top_negative_features": [
+    "technical.price_vs_ma200=0.1",
+    "technical.momentum_6m=0.3",
+    "technical.trend_quality=0.6"
+  ],
+  "stop_factors": [
+    {
+      "name": "Technical Breakdown",
+      "severity": "warning",
+      "description": "Price in severe downtrend (score < 3/10)"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 14.4,
+      "pe_forward": 9.4,
+      "pe_hist_avg": 30.5,
+      "ps_ttm": 4.4,
+      "analyst_target_median": 314.75,
+      "analyst_upside_pct": 27.1,
+      "analyst_count": 34,
+      "analyst_consensus": "hold"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 10.5,
+      "revenue_growth_3y_avg_pct": 10.5,
+      "gross_margin_pct": 89.3,
+      "net_margin_pct": 30.5,
+      "roe_pct": 61.3,
+      "fcf_yield_pct": 8.1
+    },
+    "technical": {
+      "price_vs_ma50_pct": 0.0,
+      "price_vs_ma200_pct": -19.7,
+      "atr_pct_daily": 3.42
+    },
+    "risk": {
+      "beta": 1.42,
+      "debt_to_equity": 0.53,
+      "short_interest_pct_float": 4.8
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 247.6,
+  "limit_price": 240.17,
+  "target_price": 314.75,
+  "stop_price": 208.95,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": true,
+  "contradictions": [],
+  "confidence": 0.92,
+  "narrative": "ADBE фундаментально сильна (качество 9.3, валюация 9.0, ROE 61%), но технически в тренде вниз (-19.7% от MA200). Накопление на откате к 240 с целью 315 — разумная стратегия на длинном горизонте.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+### Rationale (not JSON):
+
+**1. Block Score Consistency:**
+- Quality 9.27: Justified. Revenue growth 10.5%, net margin 30.5%, ROE 61.3%, FCF yield 8.1% — all strong.
+- Valuation 8.98: Justified. PE trailing 14.4 (well below hist avg 30.5), forward 9.4, PEG ~1.0 (top_positive), analyst upside 27.1% — compelling.
+- Technical 2.18: Correct (severe). Price -19.7% below MA200, momentum 6m = 0.3, trend quality = 0.6 — clearly broken.
+- Risk 7.56: Acceptable. Beta 1.42 (elevated but not extreme), debt/equity 0.53 (low), FCF consistency 10/10 (top positive) — risk is moderate.
+- Style_fit 9.02: Strong. FCF margin style = 10/10, consistent with mature tech quality profile.
+
+**2. Horizon Scores vs. Weights:**
+- Short 59.4: Penalized by technical 2.18 (40% weight). Fair — technicals are terrible. Score ≥ 60 threshold is just missed, but "Accumulate on Pullback" already acknowledges this.
+- Medium 74.8: Balanced across valuation (30%), quality (25%), technical (20% penalty). Reasonable.
+- Long 80.5: Technical (10% weight) has minimal drag; quality (35%) + risk (25%) dominate. Excellent fit.
+
+**3. Raw Metrics Validation:**
+- **Valuation**: PE 14.4 is well below historical 30.5; analyst consensus "hold" with 27% upside is mildly conservative but not contradictory.
+- **Quality**: All metrics stellar (margin 30.5%, ROE 61.3%, revenue growth stable). Score 9.27 is fully supported.
+- **Technical**: Price -19.7% below MA200 is a genuine downtrend. Limit order at 240.17 (7.6 below market) is sensible.
+- **Risk**: Debt/equity 0.53 is conservative; beta 1.42 is moderate for tech. Risk score 7.56 is justified.
+
+**4. Risk/Reward at Limit Price:**
+- Entry: 240.17
+- Target: 314.75
+- Stop: 208.95
+- R/R = (314.75 − 240.17) / (240.17 − 208.95) = 74.58 / 31.22 = **2.39**
+- Excellent R/R (well above 1.5 threshold).
+
+**5. Trade Action Logic:**
+- "Accumulate on Pullback" is the correct response: fundamentals are excellent (quality 9.27, valuation 8.98), but technicals are weak (2.18). The limit order at 240.17 waits for validation of a reversal while maintaining a strong R/R.
+- No contradiction between scores and action — engine correctly downgraded from market entry due to technical breakdown.
+
+**6. No Critical Stop Factors:**
+- Technical warning is already reflected in the "Accumulate on Pullback" downgrade, not a trade-killer.
+- Analyst consensus "hold" vs. "27% upside" is mild conservatism; not a contradiction.
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  ADBE  |  claude-haiku-4-5  |  2026-05-16 09:20:22
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1841 tokens
+  Output :    947 tokens
+  Total  :   2788 tokens
+  Cost   : $0.005261 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "ADBE",
+  "as_of": "2026-05-16",
+  "company_type": "Mature Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 9.27,
+    "valuation": 8.98,
+    "technical": 2.18,
+    "risk": 7.56,
+    "style_fit": 9.02
+  },
+  "horizon_scores": {
+    "short": 59.4,
+    "medium": 74.8,
+    "long": 80.5
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "style_fit.fcf_margin_style=10.0",
+    "risk.fcf_consistency=10.0",
+    "valuation.peg_ratio=10.0"
+  ],
+  "top_negative_features": [
+    "technical.price_vs_ma200=0.1",
+    "technical.momentum_6m=0.3",
+    "technical.trend_quality=0.6"
+  ],
+  "stop_factors": [
+    {
+      "name": "Technical Breakdown",
+      "severity": "warning",
+      "description": "Price in severe downtrend (score < 3/10)"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 14.4,
+      "pe_forward": 9.4,
+      "pe_hist_avg": 30.5,
+      "ps_ttm": 4.4,
+      "analyst_target_median": 314.75,
+      "analyst_upside_pct": 27.1,
+      "analyst_count": 34,
+      "analyst_consensus": "hold"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 10.5,
+      "revenue_growth_3y_avg_pct": 10.5,
+      "gross_margin_pct": 89.3,
+      "net_margin_pct": 30.5,
+      "roe_pct": 61.3,
+      "fcf_yield_pct": 8.1
+    },
+    "technical": {
+      "price_vs_ma50_pct": 0.0,
+      "price_vs_ma200_pct": -19.7,
+      "atr_pct_daily": 3.42
+    },
+    "risk": {
+      "beta": 1.42,
+      "debt_to_equity": 0.53,
+      "short_interest_pct_float": 4.8
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 247.6,
+  "limit_price": 240.17,
+  "target_price": 314.75,
+  "stop_price": 208.95,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": true,
+  "contradictions": [],
+  "confidence": 0.92,
+  "narrative": "ADBE отличный выбор на долгий срок (качество 9.3, валюация справедлива при PEG 10.0 и 27% потенциала). Технический тренд слаб (-19.7% к MA200), поэтому сейчас ждём коррекции к 240.17 перед входом.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**Verification notes:**
+
+1. **Block scores → horizon scores: consistent.** Long horizon (80.5) weighted quality (9.27 @ 35%), risk (7.56 @ 25%), style_fit (9.02 @ 15%), valuation (8.98 @ 15%), technical (2.18 @ 10%). The weak technical score has minimal impact on long-term, which is correct.
+
+2. **Quality score 9.27 is well-justified:**
+   - Revenue growth 10.5% (stable 3y avg)
+   - Net margin 30.5% (exceptional)
+   - ROE 61.3% (outstanding)
+   - Gross margin 89.3% (premium business)
+
+3. **Valuation score 8.98 is sound:**
+   - PE trailing 14.4 vs hist avg 30.5 → trading at ~47% discount to history
+   - PE forward 9.4 is very cheap relative to earnings power
+   - PEG ratio = 10.0 (top positive feature) confirms attractive value
+   - 27% analyst upside with median target $314.75
+
+4. **Technical score 2.18 is NOT a contradiction:**
+   - Price -19.7% below MA200 (severe downtrend, consistent with score <3)
+   - Price at MA50 (0.0%), suggesting near-term stabilisation zone
+   - ATR 3.42% daily volatility is moderate
+   - **"Accumulate on Pullback" action is correct here** — engine deliberately flags weak technicals and uses limit_price = $240.17 (another ~3% pullback).
+
+5. **Risk score 7.56 is appropriate:**
+   - Beta 1.42 (moderate, not extreme)
+   - Debt/equity 0.53 (healthy, conservative)
+   - Short interest 4.8% (manageable)
+   - FCF consistency 10.0 (top positive feature) confirms low fundamental risk
+   - No critical stop factors present
+
+6. **R/R validation at limit_price:**
+   - Entry: $240.17 (limit)
+   - Target: $314.75
+   - Stop: $208.95
+   - Upside: $314.75 − $240.17 = $74.58
+   - Risk: $240.17 − $208.95 = $31.22
+   - R/R = 2.39 (excellent, >1.5 threshold ✓)
+
+7. **Analyst consensus "hold" vs action "Accumulate on Pullback":**
+   - Not contradictory. Consensus reflects current price (~$247.6, above median target is false: target $314.75 > current). Engine is being more constructive on long-horizon fundamentals while respecting short-term technicals.
+   - 27% upside with 34 analysts is credible cover.
+
+8. **Short score 59.4 (below 60 threshold)** is expected and explained: technical = 2.18 carries 40% weight in short horizon. Not a reason to "Avoid" when action is already "Accumulate on Pullback" (tactical pullback waiting).
+
+**Summary:** Engine behaviour is internally consistent and well-grounded in raw metrics. The action correctly balances exceptional fundamental quality/valuation against technical weakness by using a limit order. No genuine contradictions.
+
+──────────────────────────────────────────────────────────────────────

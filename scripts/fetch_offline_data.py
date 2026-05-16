@@ -33,8 +33,8 @@ import yfinance as yf
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.data.sec_edgar import fetch_fundamentals, get_cik, _fetch_raw_facts  # noqa: E402
-from src.data.price import fetch_ohlcv, fetch_info  # noqa: E402
+from src.data.price import fetch_info, fetch_ohlcv  # noqa: E402
+from src.data.sec_edgar import _fetch_raw_facts, fetch_fundamentals, get_cik  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Tickers: 20 stocks covering 8 sectors and all CompanyType categories
@@ -151,15 +151,22 @@ def fetch_spy() -> None:
 
 
 def main() -> None:
+    import argparse
+    parser = argparse.ArgumentParser(description="Fetch offline data snapshots")
+    parser.add_argument("tickers", nargs="*", help="Tickers to fetch (default: all)")
+    args = parser.parse_args()
+
+    tickers = [t.upper() for t in args.tickers] if args.tickers else TICKERS
+
     print(f"Output directory: {OUT_DIR.resolve()}")
-    print(f"Tickers ({len(TICKERS)}): {', '.join(TICKERS)}")
+    print(f"Tickers ({len(tickers)}): {', '.join(tickers)}")
     print()
 
     fetch_spy()
 
     failed = []
-    for i, ticker in enumerate(TICKERS, 1):
-        print(f"\n[{i}/{len(TICKERS)}]", end="")
+    for i, ticker in enumerate(tickers, 1):
+        print(f"\n[{i}/{len(tickers)}]", end="")
         try:
             fetch_ticker(ticker)
         except Exception as exc:
@@ -171,7 +178,7 @@ def main() -> None:
     total_mb = sum(
         f.stat().st_size for f in OUT_DIR.rglob("*") if f.is_file()
     ) / 1_048_576
-    print(f"Done. {len(TICKERS) - len(failed)}/{len(TICKERS)} tickers saved.")
+    print(f"Done. {len(tickers) - len(failed)}/{len(tickers)} tickers saved.")
     print(f"Total size: {total_mb:.1f} MB  →  {OUT_DIR.resolve()}")
     if failed:
         print(f"Failed: {', '.join(failed)}")

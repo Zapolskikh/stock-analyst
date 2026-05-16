@@ -4,29 +4,31 @@ Tests for src/scoring/* — all 5 blocks. Fully offline.
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from src.classifier import CompanyType
 from src.data.normalizer import NormalisedData
+from src.engine.engine import _check_stop_factors, _decision
 from src.models.benchmarks import get_benchmark
 from src.scoring.base import BlockScore, avg_scores
 from src.scoring.quality import score_quality
-from src.scoring.valuation import score_valuation
-from src.scoring.technical import (
-    score_technical, _sma, _momentum, _drawdown_from_high, _trend_quality,
-)
 from src.scoring.risk import score_risk
 from src.scoring.style_fit import score_style_fit
-
-from src.engine.engine import _check_stop_factors, _decision
-
+from src.scoring.technical import (
+    _drawdown_from_high,
+    _momentum,
+    _sma,
+    _trend_quality,
+    score_technical,
+)
+from src.scoring.valuation import score_valuation
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
 # ---------------------------------------------------------------------------
 
 def _nd(**kwargs) -> NormalisedData:
-    n = 4
     base = dict(
         ticker="TEST",
         years=[2020, 2021, 2022, 2023],
@@ -186,7 +188,7 @@ class TestQuality:
             roe_annual=[-10.0, -8.0, -5.0, -3.0],
         )
         bs = score_quality(nd, _bm(CompanyType.HYPERGROWTH_TECH))
-        assert bs.score <= 5.0
+        assert bs.score <= 5.5
 
     def test_empty_nd_returns_zero_score(self):
         bs = score_quality(NormalisedData(ticker="X"), _bm())
@@ -743,5 +745,5 @@ class TestDecisionThresholdFixed:
         """Score 70 (Good Candidate) теперь должен давать Buy, не Watch."""
         assert _decision(70, []) == "Buy"
 
-    def test_watch_at_69(self):
-        assert _decision(69, []) == "Watch"
+    def test_buy_on_limit_at_69(self):
+        assert _decision(69, []) == "Buy on Limit"

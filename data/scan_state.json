@@ -1,0 +1,30 @@
+{
+  "universes": [
+    "sp500",
+    "finviz_undervalued"
+  ],
+  "resume_universe": "sp500",
+  "resume_after_ticker": "NDAQ",
+  "signaled": [
+    "ACGL",
+    "ADBE",
+    "AEP",
+    "APP",
+    "CMCSA",
+    "CPAY",
+    "EQT",
+    "EXE",
+    "FDS",
+    "GDDY",
+    "GILD",
+    "GRMN",
+    "JKHY",
+    "KVUE",
+    "MCO",
+    "META",
+    "MSFT",
+    "NDAQ",
+    "STZ"
+  ],
+  "last_saved": "2026-05-16T16:11:57.580212+00:00"
+}

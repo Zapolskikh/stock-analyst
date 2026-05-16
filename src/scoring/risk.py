@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import math
 from statistics import mean, stdev
-from typing import Optional
 
 from src.classifier import CompanyType
 from src.data.normalizer import NormalisedData

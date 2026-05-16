@@ -19,7 +19,6 @@ from src.ai.connector import (
 from src.data.normalizer import NormalisedData
 from src.engine.engine import analyse_nd
 
-
 # ---------------------------------------------------------------------------
 # Helper: minimal NormalisedData
 # ---------------------------------------------------------------------------
@@ -276,6 +275,8 @@ class TestClaudeConnector(unittest.TestCase):
         mock_anthropic, mock_client = self._make_mock_anthropic()
         mock_message = MagicMock()
         mock_message.content = [MagicMock(text=_VALID_JSON_RESPONSE)]
+        mock_message.usage.input_tokens = 1000
+        mock_message.usage.output_tokens = 200
         mock_client.messages.create.return_value = mock_message
 
         with patch.dict(sys.modules, {"anthropic": mock_anthropic}):
@@ -291,6 +292,8 @@ class TestClaudeConnector(unittest.TestCase):
         mock_anthropic, mock_client = self._make_mock_anthropic()
         mock_message = MagicMock()
         mock_message.content = [MagicMock(text=_VALID_JSON_RESPONSE)]
+        mock_message.usage.input_tokens = 1000
+        mock_message.usage.output_tokens = 200
         mock_client.messages.create.return_value = mock_message
 
         with patch.dict(sys.modules, {"anthropic": mock_anthropic}):
@@ -315,6 +318,8 @@ class TestClaudeConnector(unittest.TestCase):
         mock_anthropic, mock_client = self._make_mock_anthropic()
         mock_message = MagicMock()
         mock_message.content = [MagicMock(text=_VALID_JSON_RESPONSE)]
+        mock_message.usage.input_tokens = 1000
+        mock_message.usage.output_tokens = 200
         mock_client.messages.create.return_value = mock_message
 
         with patch.dict(sys.modules, {"anthropic": mock_anthropic}):
@@ -333,7 +338,6 @@ class TestOllamaConnector(unittest.TestCase):
 
     def _mock_urlopen(self, response_body: dict):
         """Return a context manager mock that yields a fake HTTP response."""
-        import io
         raw = json.dumps(response_body).encode()
         mock_resp = MagicMock()
         mock_resp.read.return_value = raw

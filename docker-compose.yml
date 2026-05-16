@@ -1,0 +1,48 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Stock Analyst — docker-compose.yml
+#
+# Быстрый старт:
+#   1. Скопируйте .env.example → .env и заполните ключи
+#   2. docker compose up -d --build
+#
+# Логи:
+#   docker compose logs -f
+#
+# Перезапуск с очисткой состояния:
+#   docker compose exec stock-analyst uv run python scripts/scan_all.py --reset
+# ──────────────────────────────────────────────────────────────────────────────
+
+services:
+  stock-analyst:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: stock-analyst:latest
+    container_name: stock-analyst
+    restart: unless-stopped
+
+    # Все секреты и API-ключи берём из .env (не хранить в compose-файле!)
+    env_file:
+      - .env
+
+    environment:
+      # Включает production-режим: AI-логи не пишутся на диск
+      STOCK_ANALYST_ENV: production
+      # Timezone для корректного отображения времени в логах контейнера
+      TZ: America/New_York
+
+    volumes:
+      # Персистим только data/ — здесь хранятся scan_state.json,
+      # scheduler_state.json и yfinance-кэш (peer_info_*.json).
+      # Reports / charts в production не нужны — всё уходит в Telegram.
+      - stock-analyst-data:/app/data
+
+    # Ограничение ресурсов (рекомендуется на VPS)
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 1g
+
+volumes:
+  stock-analyst-data:
+    driver: local

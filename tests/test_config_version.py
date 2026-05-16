@@ -3,17 +3,16 @@ from __future__ import annotations
 
 import pytest
 
+from src.data.normalizer import NormalisedData
+from src.engine.engine import analyse_nd
 from src.models.config_version import (
-    ConfigMeta,
     _CONFIG_REGISTRY,
     _CURRENT_VERSION,
+    ConfigMeta,
     current_version,
     get_config_meta,
     list_versions,
 )
-from src.data.normalizer import NormalisedData
-from src.engine.engine import analyse_nd
-
 
 # ---------------------------------------------------------------------------
 # Helper

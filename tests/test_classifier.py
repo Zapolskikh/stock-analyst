@@ -3,19 +3,15 @@ Tests for src/classifier.py — fully offline.
 """
 from __future__ import annotations
 
-import math
-import pytest
-
 from src.classifier import (
-    CompanyType,
     ClassificationResult,
-    _recent_mean,
-    _last_valid,
+    CompanyType,
     _count_positive_growth,
+    _last_valid,
+    _recent_mean,
     classify,
 )
 from src.data.normalizer import NormalisedData
-
 
 # ---------------------------------------------------------------------------
 # Helpers

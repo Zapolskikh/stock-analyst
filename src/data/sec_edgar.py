@@ -15,10 +15,10 @@ from __future__ import annotations
 
 import time
 
-import requests
 import pandas as pd
+import requests
 
-from src.data.cache import load_json, save_json, is_fresh
+from src.data.cache import is_fresh, load_json, save_json
 
 _BASE = "https://data.sec.gov"
 _TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"

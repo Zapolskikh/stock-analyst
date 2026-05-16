@@ -50,7 +50,6 @@ from dataclasses import dataclass, field
 from src.classifier import CompanyType
 from src.data.normalizer import NormalisedData
 
-
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -211,9 +210,7 @@ def _fcf_reliability(nd: NormalisedData) -> float:
     vals = [v for v in nd.fcf_annual[-5:] if math.isfinite(v) and v > 0]
     if len(vals) < 3:
         return 0.5  # insufficient history → neutral reliability
-    mu = sum(vals) / len(vals)
-    if mu <= 0:
-        return 0.5
+    mu = sum(vals) / len(vals)  # always > 0 (vals filtered to positive)
     variance = sum((v - mu) ** 2 for v in vals) / len(vals)
     cov = variance ** 0.5 / mu
     return max(0.3, 1.0 - cov)  # CoV=0.0 → 1.0;  CoV≥0.7 → 0.3
@@ -356,12 +353,6 @@ def _model_dcf(
     r_bull  = _clamp(discount_rate * 0.92, _MIN_DISCOUNT, _MAX_DISCOUNT)
     bear_val = _dcf_scenario(fcf_base, g1_bear, r_bear, shares, net_cash)
     bull_val = _dcf_scenario(fcf_base, g1_bull, r_bull, shares, net_cash)
-
-    dcf_range = (
-        round(bear_val, 2) if bear_val > 0 else None,
-        round(base_val, 2) if base_val > 0 else None,
-        round(bull_val, 2) if bull_val > 0 else None,
-    )
 
     base_label = "median" if len(fcf_pos) >= 3 else "TTM"
     assumptions.append(
@@ -531,6 +522,11 @@ def _model_peg_eps(
             if trailing_g <= 2.0 and implied_g > 5.0:
                 # Trailing is stale/flat; analysts see recovery → use implied
                 eps_g = implied_g
+            elif trailing_g > 100.0:
+                # Trailing is anomalous (base-effect / EPS sign flip) —
+                # blending in a 658%+ figure would distort the growth estimate.
+                # Use only analyst-implied growth which is forward-looking.
+                eps_g = implied_g
             else:
                 # Normal blend: 50/50 implied vs trailing
                 eps_g = implied_g * 0.5 + trailing_g * 0.5
@@ -600,16 +596,20 @@ def compute_fair_value(
     # Sanity cap: clip each estimate to [0.1×price, 10×price]
     lo, hi = price * 0.10, price * 10.0
 
-    def _sanitize(v: float | None) -> float | None:
+    def _sanitize(v: float | None, label: str) -> float | None:
         if v is None or not math.isfinite(v):
             return None
         if v <= 0 or v < lo or v > hi:
+            assumptions.append(
+                f"{label} estimate ${v:.2f} rejected — outside sanity range "
+                f"[${lo:.2f}, ${hi:.2f}] (10%–10× current price)"
+            )
             return None
         return v
 
-    val_dcf = _sanitize(val_dcf)
-    val_analyst = _sanitize(val_analyst)
-    val_peg = _sanitize(val_peg)
+    val_dcf     = _sanitize(val_dcf,     "DCF")
+    val_analyst = _sanitize(val_analyst, "Analyst")
+    val_peg     = _sanitize(val_peg,     "PEG-EPS")
 
     # ── Compute weights ───────────────────────────────────────────────────
     w_dcf, w_analyst, w_peg = _BASE_WEIGHTS.get(company_type, (0.30, 0.45, 0.25))
@@ -633,10 +633,34 @@ def compute_fair_value(
     if val_analyst is None:
         w_analyst = 0.0
     else:
-        # Scale analyst weight by confidence multiplier (clamp within [0.5w, 1.5w])
-        w_analyst = _clamp(w_analyst * analyst_confidence, w_analyst * 0.5, w_analyst * 1.5)
+        # Scale analyst weight by confidence multiplier.
+        # analyst_confidence ∈ [0.60, 1.30] — directly multiply, no clamp needed.
+        w_analyst = w_analyst * analyst_confidence
     if val_peg is None:
         w_peg = 0.0
+    else:
+        # When trailing EPS growth history is anomalous (>100%), the PEG-EPS
+        # model is built on distorted inputs even after capping — the fair P/E
+        # derivation has a shaky foundation. Reduce its composite weight so that
+        # DCF + analyst consensus dominate the fair value estimate.
+        # Example: CRM trailing EPS growth 658% (base-effect from near-zero EPS)
+        # → PEG-EPS $328 inflates composite from ~$244 (DCF+analyst) to $268.
+        _trailing_eps_g = _recent_mean(nd.eps_growth_annual, 3)
+        if _trailing_eps_g is not None and _trailing_eps_g > 100.0:
+            _other_available = val_dcf is not None or val_analyst is not None
+            if _other_available:
+                # Only reduce PEG weight when other models exist to compensate.
+                # If PEG is the sole model, ×0.40 is normalized away anyway.
+                w_peg *= 0.40
+                assumptions.append(
+                    f"PEG weight reduced 60% — trailing EPS growth {_trailing_eps_g:.0f}% "
+                    "is anomalous (base-effect/sign-flip); DCF+analyst anchor the estimate"
+                )
+            else:
+                assumptions.append(
+                    f"PEG only model — trailing EPS growth {_trailing_eps_g:.0f}% is anomalous "
+                    "but no alternative models available; interpret with caution"
+                )
 
     total_w = w_dcf + w_analyst + w_peg
     if total_w == 0:
@@ -668,13 +692,14 @@ def compute_fair_value(
     else:
         _ANALYST_MAX_WEIGHT = 0.55
     if w_analyst > _ANALYST_MAX_WEIGHT:
-        excess = w_analyst - _ANALYST_MAX_WEIGHT
-        w_analyst = _ANALYST_MAX_WEIGHT
         other_sum = w_dcf + w_peg
         if other_sum > 0:
+            # Redistribute excess analyst weight to other models proportionally
+            excess = w_analyst - _ANALYST_MAX_WEIGHT
+            w_analyst = _ANALYST_MAX_WEIGHT
             w_dcf += excess * (w_dcf / other_sum)
             w_peg += excess * (w_peg / other_sum)
-        # If no other models: analyst keeps full weight (already handled above)
+        # else: analyst is the only available model — keep full weight (no cap)
 
     # Composite fair value
     fv = (

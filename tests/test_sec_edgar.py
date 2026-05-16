@@ -5,13 +5,12 @@ All network calls are mocked — no internet required.
 """
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pandas as pd
 import pytest
 
-from src.data.sec_edgar import CONCEPTS, _extract_concept, fetch_fundamentals, get_cik
-
+from src.data.sec_edgar import _extract_concept, fetch_fundamentals, get_cik
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers

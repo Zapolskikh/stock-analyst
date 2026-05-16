@@ -9,11 +9,9 @@ from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
-import pytest
 
-from src.charts.price_chart import build_price_chart, _calc_rsi, _calc_macd
 from src.charts.fundamental_chart import build_fundamental_charts
-
+from src.charts.price_chart import _calc_macd, _calc_rsi, build_price_chart
 
 # ---------------------------------------------------------------------------
 # Helpers

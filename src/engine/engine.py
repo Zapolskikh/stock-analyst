@@ -33,18 +33,17 @@ import math
 from dataclasses import dataclass, field
 from typing import Optional
 
+from src.classifier import CompanyType, classify
 from src.data.normalizer import NormalisedData
-from src.classifier import classify, CompanyType
 from src.models.benchmarks import get_benchmark
 from src.models.config_version import current_version
 from src.scoring.base import BlockScore
+from src.scoring.fair_value import FairValueResult, compute_fair_value
 from src.scoring.quality import score_quality
-from src.scoring.valuation import score_valuation
-from src.scoring.technical import score_technical
 from src.scoring.risk import score_risk
 from src.scoring.style_fit import score_style_fit
-from src.scoring.fair_value import compute_fair_value, FairValueResult
-
+from src.scoring.technical import score_technical
+from src.scoring.valuation import score_valuation
 
 # ---------------------------------------------------------------------------
 # Result dataclasses
@@ -118,6 +117,8 @@ class AnalysisResult:
     config_version: str = ""   # version of scoring thresholds/weights used
     fair_value: Optional[FairValueResult] = None   # intrinsic value estimate
     trade_rec: Optional[TradeRecommendation] = None  # actionable trade recommendation
+    current_price: Optional[float] = None           # latest market price
+    nd: Optional[NormalisedData] = None             # raw normalised data (for AI raw_metrics)
 
 
 # ---------------------------------------------------------------------------
@@ -174,11 +175,11 @@ def _rating(score: float) -> str:
     return "Avoid"
 
 
-def _decision(score: float, stop_factors: list[StopFactor]) -> str:
+def _decision(score: float, stop_factors: list[StopFactor], threshold: float = 70.0) -> str:
     has_critical = any(sf.severity == "critical" for sf in stop_factors)
     if has_critical or score < 60:
         return "Avoid"
-    if score >= 70:
+    if score >= threshold:
         return "Buy"
     return "Buy on Limit"
 
@@ -461,6 +462,7 @@ def _compute_trade_recommendation(
     stop_factors: list[StopFactor],
     blocks: dict[str, BlockScore],
     fv: Optional[FairValueResult],
+    buy_now_threshold: float = 70.0,
 ) -> TradeRecommendation:
     """
     Convert scoring results into a concrete trading recommendation.
@@ -579,7 +581,7 @@ def _compute_trade_recommendation(
     if _rr_ratio < 1.5:
         gate_failures.append(f"R/R {_rr_ratio:.1f} : 1 below minimum 1.5 : 1")
 
-    if overall_score >= 70 and price_vs_fv_pct <= 5.0 and not gate_failures:
+    if overall_score >= buy_now_threshold and price_vs_fv_pct <= 5.0 and not gate_failures:
         rationale.insert(0, f"Score {overall_score:.0f}/100 — qualifies for immediate entry")
         if fv_price:
             rationale.insert(1, f"Price ${price:.2f} within {abs(price_vs_fv_pct):.1f}% of fair value ${fv_price:.2f}")
@@ -597,7 +599,7 @@ def _compute_trade_recommendation(
 
     # Buy on Limit: determine the limit price
     # If gate failed, explain why BUY NOW was downgraded
-    if gate_failures and overall_score >= 70 and price_vs_fv_pct <= 5.0:
+    if gate_failures and overall_score >= buy_now_threshold and price_vs_fv_pct <= 5.0:
         rationale.insert(0, f"Score {overall_score:.0f}/100 — good, but entry gate not passed:")
         for gf in gate_failures:
             rationale.insert(1, f"  ✗ {gf}")
@@ -606,10 +608,21 @@ def _compute_trade_recommendation(
         limit_price = round(fv_price, 2)
         rationale.insert(0, f"Price ${price:.2f} is {price_vs_fv_pct:.1f}% above fair value — wait for pullback")
     else:
-        # Stock is at/below fair value but score < 70 — buy on 3–5% dip
-        dip_pct = 0.97 if overall_score >= 65 else 0.95
-        limit_price = round(price * dip_pct, 2)
-        rationale.insert(0, f"Score {overall_score:.0f}/100 — good but not exceptional; wait for {(1-dip_pct)*100:.0f}% dip")
+        # Dynamic ATR-based offset scaled by score gap below buy_now_threshold.
+        # base offset = 1.5× ATR-14 (one-and-a-half daily ranges); fallback 2%.
+        # gap_mult = 1 + 0.1 × gap, so each point below threshold adds 10% to offset.
+        # Clamped to [1%, 8%] to stay practical.
+        _atr_now = nd.atr_pct
+        _gap = max(0.0, buy_now_threshold - overall_score)
+        _base_pct = (_atr_now * 1.5) if (_atr_now and _atr_now > 0) else 2.0
+        _gap_mult = 1.0 + _gap * 0.1
+        _offset_pct = min(max(_base_pct * _gap_mult, 1.0), 8.0)
+        limit_price = round(price * (1 - _offset_pct / 100), 2)
+        _atr_info = f"ATR {_atr_now:.2f}%/d" if (_atr_now and _atr_now > 0) else "ATR n/a"
+        rationale.insert(0,
+            f"Score {overall_score:.0f}/100 — wait for {_offset_pct:.1f}% dip "
+            f"({_atr_info}, {_gap:.0f}pts below immediate-buy threshold)"
+        )
 
     # If limit is more than 20% away the stock is materially overpriced vs fair
     # value — a realistic pullback of that magnitude requires a bear market or
@@ -654,10 +667,15 @@ def _compute_trade_recommendation(
             wait_days = 8
         atr_note = "ATR unavailable — using distance-based estimate"
 
-    # Adjust stop for limit entry
-    stop_price_limit = max(limit_price * hard_stop_pct, stop_price * 0.97)
+    # Adjust stop for limit entry — always anchor to limit_price, never to the
+    # current-price-based stop (which can sit ABOVE the limit and cause stop > entry).
+    # MA200 is only used as support if it is below the planned entry price.
     if ma200 and math.isfinite(ma200) and ma200 < limit_price * 0.99:
         stop_price_limit = max(ma200 * 0.97, limit_price * hard_stop_pct)
+    else:
+        stop_price_limit = limit_price * hard_stop_pct
+    # Safety guard: stop must always be strictly below entry price
+    stop_price_limit = min(stop_price_limit, limit_price * 0.99)
 
     rationale.append(f"Limit {pct_away:.1f}% below current price — keep order {wait_days} calendar days ({atr_note})")
 
@@ -678,7 +696,7 @@ def _compute_trade_recommendation(
 # Core analysis function (accepts pre-built NormalisedData)
 # ---------------------------------------------------------------------------
 
-def analyse_nd(nd: NormalisedData) -> AnalysisResult:
+def analyse_nd(nd: NormalisedData, buy_now_threshold: float = 70.0) -> AnalysisResult:
     """Run full scoring pipeline on an already-normalised dataset.
 
     This is the testable, pure-logic entry point.
@@ -727,9 +745,9 @@ def analyse_nd(nd: NormalisedData) -> AnalysisResult:
     rating   = _rating(overall)
 
     horizon_decisions = HorizonDecisions(
-        short=_decision(short,  stop_factors),
-        medium=_decision(medium, stop_factors),
-        long=_decision(long_,   stop_factors),
+        short=_decision(short,  stop_factors, buy_now_threshold),
+        medium=_decision(medium, stop_factors, buy_now_threshold),
+        long=_decision(long_,   stop_factors, buy_now_threshold),
     )
     decision = horizon_decisions.medium   # backward-compat alias
 
@@ -742,6 +760,7 @@ def analyse_nd(nd: NormalisedData) -> AnalysisResult:
         stop_factors=stop_factors,
         blocks=blocks,
         fv=fair_value,
+        buy_now_threshold=buy_now_threshold,
     )
 
     return AnalysisResult(
@@ -759,6 +778,8 @@ def analyse_nd(nd: NormalisedData) -> AnalysisResult:
         config_version=current_version(),
         fair_value=fair_value,
         trade_rec=trade_rec,
+        current_price=nd.current_price,
+        nd=nd,
     )
 
 
@@ -766,16 +787,17 @@ def analyse_nd(nd: NormalisedData) -> AnalysisResult:
 # Full pipeline (fetches live data)
 # ---------------------------------------------------------------------------
 
-def analyse(ticker: str) -> AnalysisResult:
+def analyse(ticker: str, buy_now_threshold: float = 70.0) -> AnalysisResult:
     """Fetch data, normalise, and score a ticker end-to-end.
 
     Requires network access (yfinance + SEC EDGAR).
     For offline unit tests use ``analyse_nd()`` instead.
     """
     import pandas as pd
-    from src.data.price import fetch_ohlcv, fetch_info
-    from src.data.sec_edgar import fetch_fundamentals
+
     from src.data.normalizer import normalise
+    from src.data.price import fetch_info, fetch_ohlcv
+    from src.data.sec_edgar import fetch_fundamentals
 
     ticker = ticker.upper().strip()
 
@@ -801,4 +823,4 @@ def analyse(ticker: str) -> AnalysisResult:
         fundamentals = {}
 
     nd = normalise(fundamentals, price_df, info, ticker, spy_prices=spy_prices)
-    return analyse_nd(nd)
+    return analyse_nd(nd, buy_now_threshold=buy_now_threshold)

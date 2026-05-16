@@ -1,0 +1,1686 @@
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  MSFT  |  claude-haiku-4-5  |  2026-05-15 21:40:27
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1879 tokens
+  Output :    903 tokens
+  Total  :   2782 tokens
+  Cost   : $0.005115 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "MSFT",
+  "as_of": "2026-05-15",
+  "company_type": "Mature Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 9.16,
+    "valuation": 5.03,
+    "technical": 4.67,
+    "risk": 8.52,
+    "style_fit": 8.98
+  },
+  "horizon_scores": {
+    "short": 63.7,
+    "medium": 69.1,
+    "long": 79.0
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "risk.fcf_consistency=10.0",
+    "risk.debt_to_equity=10.0",
+    "quality.accruals_ratio=10.0"
+  ],
+  "top_negative_features": [
+    "technical.momentum_6m=1.3",
+    "valuation.ps_ratio=2.1",
+    "technical.price_vs_ma200=3.2"
+  ],
+  "stop_factors": [
+    {
+      "name": "Cashflow Anomaly",
+      "severity": "warning",
+      "description": "TTM OCF $164.5B vs 5yr avg $101.6B (\u00b1$24.8B) \u2014 62% surge; may distort DCF and quality metrics"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 25.3,
+      "pe_forward": 21.9,
+      "pe_hist_avg": 37.2,
+      "ps_ttm": 10.1,
+      "analyst_target_median": 562.5,
+      "analyst_upside_pct": 32.4,
+      "analyst_count": 54,
+      "analyst_consensus": "strong_buy"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 14.9,
+      "revenue_growth_3y_avg_pct": 12.5,
+      "gross_margin_pct": 68.3,
+      "net_margin_pct": 39.7,
+      "roe_pct": 29.6,
+      "fcf_yield_pct": 2.1
+    },
+    "technical": {
+      "price_vs_ma50_pct": 6.4,
+      "price_vs_ma200_pct": -8.0,
+      "atr_pct_daily": 2.69
+    },
+    "risk": {
+      "beta": 1.09,
+      "debt_to_equity": 0.13,
+      "short_interest_pct_float": 1.1
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 424.82,
+  "limit_price": 423.56,
+  "target_price": 562.5,
+  "stop_price": 368.5,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": false,
+  "contradictions": [
+    "Valuation score 5.03 is inconsistent with analyst_consensus='strong_buy', analyst_upside_pct=32.4%, and pe_trailing=25.3 (well below historical average of 37.2). Score should reflect attractive entry.",
+    "Technical score 4.67 conflicts with price_vs_ma200_pct=-8.0 (price 8% below 200-day MA), which is a constructive pullback signal. Score should be higher for mean-reversion setup.",
+    "Cashflow Anomaly flagged as 'warning' severity (62% OCF surge) but not reflected in quality_score=9.16, which depends on normalized earnings/FCF. Risk score should be lower or quality score caveated.",
+    "Style_fit score 8.98 is extremely high but no style/sector context provided in raw_metrics. Cannot verify alignment.",
+    "Valuation ps_ratio=2.1 listed as 'top_negative' but raw_metrics show ps_ttm=10.1—a 5× discrepancy suggests data inconsistency or mislabeling."
+  ],
+  "confidence": 0.58,
+  "narrative": "MSFT: долгоудалые фундаментальные показатели (ROE 29.6%, маржа 39.7%) при справедливой текущей оценке (PE 25.3 vs 37.2 ист.), но аномалия денежного потока (OCF +62%) требует осторожности. Технический откат от MA200 (-8%) поддерживает стратегию входа по лимиту.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**Key observations for review:**
+
+1. **Valuation contradiction is material:** ps_ratio=2.1 in negative features vs ps_ttm=10.1 in raw_metrics is a 5× mismatch. If ps_ttm=10.1 is correct, MSFT is expensive on sales; if 2.1 is correct, the negative flag is misplaced. However, pe_trailing=25.3 *below* historical avg of 37.2 + 32.4% analyst upside + strong_buy consensus argues valuation_score should be ≥6, not 5.03.
+
+2. **Technical score underweights the pullback:** price_vs_ma200_pct=-8.0 is a mean-reversion setup signal; combined with momentum weakness (1.3), this justifies "Accumulate on Pullback" but score 4.67 is fair for short-term weakness. For long-horizon weighting (10% technical), this is acceptable.
+
+3. **Cashflow warning is real:** The 62% OCF surge distorts quality perception. Quality_score=9.16 may be overstated if normalized earnings are inflated. Risk_score=8.52 should reflect this uncertainty, but debt_to_equity=0.13 is fortress-like, so net risk is modest.
+
+4. **R/R check:** (562.5 − 423.56) / (423.56 − 368.5) = 138.94 / 55.06 = **2.52** — strong R/R for limit entry.
+
+5. **Horizon alignment:** Long-horizon score 79.0 is appropriate given quality/risk/style dominance; short score 63.7 correctly penalizes weak technicals.
+
+**Verdict:** Action "Accumulate on Pullback" is reasonable given the fundamental backdrop and technicals, but valuation score and data consistency issues reduce confidence. No abstention warranted—trade setup is sound despite scoring inconsistencies.
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  MSFT  |  claude-haiku-4-5  |  2026-05-15 21:42:10
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1879 tokens
+  Output :   1034 tokens
+  Total  :   2913 tokens
+  Cost   : $0.005639 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "MSFT",
+  "as_of": "2026-05-15",
+  "company_type": "Mature Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 9.16,
+    "valuation": 5.03,
+    "technical": 4.67,
+    "risk": 8.52,
+    "style_fit": 8.98
+  },
+  "horizon_scores": {
+    "short": 63.7,
+    "medium": 69.1,
+    "long": 79.0
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "risk.fcf_consistency=10.0",
+    "risk.debt_to_equity=10.0",
+    "quality.accruals_ratio=10.0"
+  ],
+  "top_negative_features": [
+    "technical.momentum_6m=1.3",
+    "valuation.ps_ratio=2.1",
+    "technical.price_vs_ma200=3.2"
+  ],
+  "stop_factors": [
+    {
+      "name": "Cashflow Anomaly",
+      "severity": "warning",
+      "description": "TTM OCF $164.5B vs 5yr avg $101.6B (\u00b1$24.8B) \u2014 62% surge; may distort DCF and quality metrics"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 25.3,
+      "pe_forward": 21.9,
+      "pe_hist_avg": 37.2,
+      "ps_ttm": 10.1,
+      "analyst_target_median": 562.5,
+      "analyst_upside_pct": 32.4,
+      "analyst_count": 54,
+      "analyst_consensus": "strong_buy"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 14.9,
+      "revenue_growth_3y_avg_pct": 12.5,
+      "gross_margin_pct": 68.3,
+      "net_margin_pct": 39.7,
+      "roe_pct": 29.6,
+      "fcf_yield_pct": 2.1
+    },
+    "technical": {
+      "price_vs_ma50_pct": 6.4,
+      "price_vs_ma200_pct": -8.0,
+      "atr_pct_daily": 2.69
+    },
+    "risk": {
+      "beta": 1.09,
+      "debt_to_equity": 0.13,
+      "short_interest_pct_float": 1.1
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 424.82,
+  "limit_price": 423.56,
+  "target_price": 562.5,
+  "stop_price": 368.5,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": false,
+  "contradictions": [
+    "Valuation score 5.03 (weak) contradicts analyst_consensus='strong_buy' with 32.4% upside and pe_trailing=25.3 vs pe_hist_avg=37.2 (currently 32% cheaper than historical). Score should reflect favorable relative valuation.",
+    "Technical score 4.67 is internally consistent (weak momentum, price below MA200), but action='Accumulate on Pullback' at limit_price=$423.56 is only $1.26 below current_price=$424.82 (0.3% pullback). This is NOT a meaningful pullback; entry should be deeper or action should be 'Watch'. R/R deteriorates materially at such shallow entry.",
+    "Cashflow anomaly (62% OCF surge) flagged as 'warning' severity but NOT elevated to critical_stop_factors, despite distorting quality and DCF-dependent valuation. This inconsistency weakens confidence in the $562.5 target.",
+    "Quality score 9.16 is justified by margins (39.7% net), ROE (29.6%), and accruals (10.0), BUT fcf_yield_pct=2.1 is historically modest for a $3T+ cap stock, suggesting limited margin of safety at current price. Score slightly overstates safety."
+  ],
+  "confidence": 0.62,
+  "narrative": "MSFT: качество (9.2) и риск (8.5) сильны, но технически слабо (4.7) и дорого по меркам роста (PS=10.1). Limit в $423.56 — лишь 0.3% от текущей цены, не стоит; аналитики дают +32% к $562.5, но подтвердить нужно коррекцию глубже.",
+  "action": "watch",
+  "abstain": true
+}
+```
+
+**Rationale:**
+
+1. **Valuation contradiction**: A score of 5.03 (weak) is misaligned with fundamentals. MSFT trades at PE=25.3, which is **32% below its 10-year average of 37.2**, supported by 15% YoY revenue growth, 39.7% net margins, and 29.6% ROE. Analyst consensus is "strong_buy" with 32% median upside. The valuation score should be 6.5–7.5 (acceptable-to-good), not weak.
+
+2. **Technical/entry mismatch**: The limit_price=$423.56 is only $1.26 (0.3%) below market. This is not a "pullback"—it's a market order in disguise. For a long-horizon trade with weak technicals (price_vs_ma200=-8%, momentum=1.3), a meaningful pullback would be 5–10%. The engine should either lower the limit significantly OR change action to "Watch."
+
+3. **Cashflow anomaly underweighted**: TTM OCF is 62% above the 5-year mean and flagged as "warning," yet it remains in stop_factors (not critical_stop_factors) and hasn't reduced the quality score. This is inconsistent—inflated OCF overstates FCF consistency and may distort DCF valuations. The warning should elevate to critical if it materially affects the $562.5 target.
+
+4. **R/R at limit price**: 
+   - Entry: $423.56
+   - Target: $562.50
+   - Stop: $368.50
+   - R/R = (562.50 − 423.56) / (423.56 − 368.50) = 138.94 / 55.06 = **2.52** ✓ (acceptable)
+   
+   However, at current market price ($424.82), R/R = 2.50, barely different. The limit adds no safety.
+
+5. **Abstain justification**: Data quality is "good," but the shallow limit_price relative to weak technicals + unresolved cashflow anomaly + misaligned valuation score creates enough ambiguity to warrant abstaining. The engine should either (a) recommend "Watch" until a real pullback, or (b) justify why $423.56 is defensible given technicals.
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  MSFT  |  claude-haiku-4-5  |  2026-05-15 22:16:51
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1879 tokens
+  Output :    992 tokens
+  Total  :   2871 tokens
+  Cost   : $0.005471 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "MSFT",
+  "as_of": "2026-05-15",
+  "company_type": "Mature Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 9.16,
+    "valuation": 5.06,
+    "technical": 4.57,
+    "risk": 8.52,
+    "style_fit": 8.98
+  },
+  "horizon_scores": {
+    "short": 63.4,
+    "medium": 69.0,
+    "long": 79.0
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "risk.fcf_consistency=10.0",
+    "risk.debt_to_equity=10.0",
+    "quality.accruals_ratio=10.0"
+  ],
+  "top_negative_features": [
+    "technical.momentum_6m=1.3",
+    "valuation.ps_ratio=2.1",
+    "technical.price_vs_ma200=3.0"
+  ],
+  "stop_factors": [
+    {
+      "name": "Cashflow Anomaly",
+      "severity": "warning",
+      "description": "TTM OCF $164.5B vs 5yr avg $101.6B (\u00b1$24.8B) \u2014 62% surge; may distort DCF and quality metrics"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 25.1,
+      "pe_forward": 21.8,
+      "pe_hist_avg": 37.2,
+      "ps_ttm": 10.0,
+      "analyst_target_median": 562.5,
+      "analyst_upside_pct": 33.3,
+      "analyst_count": 54,
+      "analyst_consensus": "strong_buy"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 14.9,
+      "revenue_growth_3y_avg_pct": 12.5,
+      "gross_margin_pct": 68.3,
+      "net_margin_pct": 39.7,
+      "roe_pct": 29.6,
+      "fcf_yield_pct": 2.2
+    },
+    "technical": {
+      "price_vs_ma50_pct": 5.7,
+      "price_vs_ma200_pct": -8.7,
+      "atr_pct_daily": 2.7
+    },
+    "risk": {
+      "beta": 1.09,
+      "debt_to_equity": 0.13,
+      "short_interest_pct_float": 1.1
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 421.92,
+  "limit_price": 409.26,
+  "target_price": 562.5,
+  "stop_price": 356.06,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": false,
+  "contradictions": [
+    "technical score 4.57 (weak) conflicts with price_vs_ma200_pct -8.7% (already pullback-corrected, not extended); momentum weakness is real but price positioning is reasonable",
+    "valuation score 5.06 (weak) seems harsh given pe_trailing 25.1 vs pe_hist_avg 37.2 (40% cheaper than 5yr norm) + analyst_consensus strong_buy + 33.3% upside; ps_ttm 10.0 is high but justified by 68% gross margin and 39.7% net margin",
+    "Cashflow Anomaly warning (TTM OCF +62% vs 5yr avg) undermines quality score 9.16 — the high accruals_ratio 10.0 may be artificially inflated if operating cash flow is anomalously strong; suggests quality score should be flagged as conditional"
+  ],
+  "confidence": 0.72,
+  "narrative": "MSFT торгуется с дисконтом к историческому PE, с консенсусом Strong Buy и 33% потенциалом роста. Вход на откате (409 уровень) имеет здоровый R/R 2.17, но необычный рост ОСГ (+62%) требует осторожности в оценке качества.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**Verification notes:**
+
+1. **R/R check (Accumulate on Pullback):**  
+   R/R = (562.5 − 409.26) / (409.26 − 356.06) = 153.24 / 53.2 ≈ **2.88** ✓ Strong risk/reward.
+
+2. **Valuation contradiction:**  
+   - Score 5.06 is too harsh. PE 25.1 is 33% *below* the 5yr average of 37.2.
+   - Revenue growth 14.9% YoY + gross margin 68.3% + net margin 39.7% justify premium valuation.
+   - Analyst consensus is strong_buy with 33.3% median upside.
+   - PS 10.0 is elevated but typical for high-margin SaaS/cloud exposure.
+   - **Verdict:** Valuation score should be 6.5–7.0, not 5.06.
+
+3. **Quality score caveat:**  
+   - Accruals_ratio 10.0 is flagged as a positive feature, but the Cashflow Anomaly (TTM OCF +62%) suggests this may be misleading.
+   - If OCF spiked artificially (one-time tax benefit, timing swing, etc.), quality metrics could be overstated.
+   - Score 9.16 is defensible on fundamentals (ROE 29.6%, margins, growth) but the warning is valid and should dampen confidence slightly.
+
+4. **Technical score vs price positioning:**  
+   - Technical 4.57 reflects weak momentum (6m = 1.3) but price is *already* 8.7% below MA200, indicating a genuine pullback opportunity.
+   - This is **not a contradiction** — the weak technical score prompted the limit order strategy, which is correct.
+
+5. **Horizon weighting:**  
+   - Long-horizon score 79 appropriately downweights technical weakness (10% weight) and emphasizes quality (35%) + risk (25%).
+   - Scores are internally consistent with weights.
+
+6. **Action alignment:**  
+   - "Accumulate on Pullback" with limit 409.26 is well-justified: technicals are weak (momentum, price compressed vs MA200), but fundamentals (quality, analyst consensus, R/R) support a limit entry.
+   - No critical stop factors present; abstain = false is correct.
+
+**Minor flag:** Monitor the cashflow anomaly closely at entry — if Q2 2026 results confirm TTM OCF normalization below $140B, quality score and margin sustainability may need reassessment.
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  MSFT  |  claude-haiku-4-5  |  2026-05-15 22:30:34
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1879 tokens
+  Output :    805 tokens
+  Total  :   2684 tokens
+  Cost   : $0.004723 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "MSFT",
+  "as_of": "2026-05-15",
+  "company_type": "Mature Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 9.16,
+    "valuation": 5.06,
+    "technical": 4.57,
+    "risk": 8.52,
+    "style_fit": 8.98
+  },
+  "horizon_scores": {
+    "short": 63.4,
+    "medium": 69.0,
+    "long": 79.0
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "risk.fcf_consistency=10.0",
+    "risk.debt_to_equity=10.0",
+    "quality.accruals_ratio=10.0"
+  ],
+  "top_negative_features": [
+    "technical.momentum_6m=1.3",
+    "valuation.ps_ratio=2.1",
+    "technical.price_vs_ma200=3.0"
+  ],
+  "stop_factors": [
+    {
+      "name": "Cashflow Anomaly",
+      "severity": "warning",
+      "description": "TTM OCF $164.5B vs 5yr avg $101.6B (\u00b1$24.8B) \u2014 62% surge; may distort DCF and quality metrics"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 25.1,
+      "pe_forward": 21.8,
+      "pe_hist_avg": 37.2,
+      "ps_ttm": 10.0,
+      "analyst_target_median": 562.5,
+      "analyst_upside_pct": 33.3,
+      "analyst_count": 54,
+      "analyst_consensus": "strong_buy"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 14.9,
+      "revenue_growth_3y_avg_pct": 12.5,
+      "gross_margin_pct": 68.3,
+      "net_margin_pct": 39.7,
+      "roe_pct": 29.6,
+      "fcf_yield_pct": 2.2
+    },
+    "technical": {
+      "price_vs_ma50_pct": 5.7,
+      "price_vs_ma200_pct": -8.7,
+      "atr_pct_daily": 2.7
+    },
+    "risk": {
+      "beta": 1.09,
+      "debt_to_equity": 0.13,
+      "short_interest_pct_float": 1.1
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 421.92,
+  "limit_price": 409.26,
+  "target_price": 562.5,
+  "stop_price": 356.06,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": true,
+  "contradictions": [],
+  "confidence": 0.92,
+  "narrative": "MSFT: долгосрочный аккумулятор с сильными фундаментами (ROE 29.6%, маржа 39.7%) и низким долгом. Технически ослаблена, но limit-ордер на откате обеспечивает благоприятное R/R ≈2.4 при целевой 562.5.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+---
+
+**Verification Summary:**
+
+1. **Block Score Consistency** ✓
+   - Quality 9.16: Justified by revenue growth 14.9% YoY, net margin 39.7%, ROE 29.6%, accruals ratio 10.0.
+   - Risk 8.52: Excellent debt_to_equity 0.13 and FCF consistency support this.
+   - Valuation 5.06: PE_trailing 25.1 is below historical avg 37.2, but PS_TTM 10.0 is elevated. Mixed signal is fair for score ~5.
+   - Technical 4.57: Momentum 6m = 1.3 (weak) and price_vs_ma200 = -8.7% confirm weak technicals. Score is appropriate.
+   - Style_fit 8.98: Mature tech with strong fundamentals matches institutional long-only mandates.
+
+2. **Horizon Alignment** ✓
+   - Long (79.0): Quality 35% + Risk 25% dominate. Technical weakness (10% weight) does not drag it down materially. Correct weighting for a 5-year horizon.
+
+3. **Raw Metrics vs. Scores** ✓
+   - No contradiction: Valuation score ~5 is conservative but sensible given elevated PS_TTM relative to growth.
+   - Quality score 9+ is fully supported by operating metrics.
+   - Risk score 8.5 matches fortress balance sheet (D/E 0.13, beta 1.09).
+
+4. **Trade Action Rationale** ✓
+   - "Accumulate on Pullback" is correct: Technical score 4.57 + short-horizon weakness (63.4) justify limit order rather than market entry.
+   - **R/R Calculation:**  
+     Entry = 409.26 (limit), Target = 562.5, Stop = 356.06  
+     R/R = (562.5 − 409.26) / (409.26 − 356.06) = 153.24 / 53.2 ≈ **2.88** ✓ (excellent)
+
+5. **Stop Factor ("Cashflow Anomaly")** ✓
+   - Flagged as "warning," not "critical." OCF surge 62% is noted but does not block the trade. Prudent risk disclosure.
+
+6. **Analyst Consensus** ✓
+   - "Strong_buy" + 33.3% upside + median target 562.5 align with long-term bullish stance.
+
+**No material contradictions detected.** The engine correctly identified technical weakness, applied a pullback limit to improve R/R, and weighted fundamentals heavily for a long-horizon trade.
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  MSFT  |  claude-haiku-4-5  |  2026-05-15 22:31:26
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1879 tokens
+  Output :    918 tokens
+  Total  :   2797 tokens
+  Cost   : $0.005175 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "MSFT",
+  "as_of": "2026-05-15",
+  "company_type": "Mature Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 9.16,
+    "valuation": 5.06,
+    "technical": 4.57,
+    "risk": 8.52,
+    "style_fit": 8.98
+  },
+  "horizon_scores": {
+    "short": 63.4,
+    "medium": 69.0,
+    "long": 79.0
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "risk.fcf_consistency=10.0",
+    "risk.debt_to_equity=10.0",
+    "quality.accruals_ratio=10.0"
+  ],
+  "top_negative_features": [
+    "technical.momentum_6m=1.3",
+    "valuation.ps_ratio=2.1",
+    "technical.price_vs_ma200=3.0"
+  ],
+  "stop_factors": [
+    {
+      "name": "Cashflow Anomaly",
+      "severity": "warning",
+      "description": "TTM OCF $164.5B vs 5yr avg $101.6B (\u00b1$24.8B) \u2014 62% surge; may distort DCF and quality metrics"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 25.1,
+      "pe_forward": 21.8,
+      "pe_hist_avg": 37.2,
+      "ps_ttm": 10.0,
+      "analyst_target_median": 562.5,
+      "analyst_upside_pct": 33.3,
+      "analyst_count": 54,
+      "analyst_consensus": "strong_buy"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 14.9,
+      "revenue_growth_3y_avg_pct": 12.5,
+      "gross_margin_pct": 68.3,
+      "net_margin_pct": 39.7,
+      "roe_pct": 29.6,
+      "fcf_yield_pct": 2.2
+    },
+    "technical": {
+      "price_vs_ma50_pct": 5.7,
+      "price_vs_ma200_pct": -8.7,
+      "atr_pct_daily": 2.7
+    },
+    "risk": {
+      "beta": 1.09,
+      "debt_to_equity": 0.13,
+      "short_interest_pct_float": 1.1
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 421.92,
+  "limit_price": 409.26,
+  "target_price": 562.5,
+  "stop_price": 356.06,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": false,
+  "contradictions": [
+    "valuation score 5.06 vs. analyst_consensus 'strong_buy' + analyst_upside_pct 33.3% — analysts see significant upside, yet engine scores valuation as weak",
+    "valuation score 5.06 but pe_trailing 25.1 is BELOW historical average 37.2 (27% discount) — this is objectively cheaper than historical norms, contradicting weak valuation score",
+    "ps_ttm 10.0 flagged as top negative feature, but for a mature tech giant with 39.7% net margin and 68.3% gross margin, high PS ratio is normal and not a valuation red flag",
+    "technical score 4.57 (weak) but price_vs_ma200_pct -8.7% indicates stock is BELOW 200-day MA (oversold), not extended — this supports the 'pullback' action but the score seems misaligned with the technical reality",
+    "short horizon score 63.4 seems low given long-term action recommendation; for a 1–5 year horizon, short-term technicals should matter less"
+  ],
+  "confidence": 0.72,
+  "narrative": "MSFT: качественная крупнокапитальная компания с сильным консенсусом аналитиков (strong buy, +33% upside). Акция торгуется ниже исторических средних мультипликаторов; рекомендуется накопление на откатах до $409.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**Explanation:**
+
+1. **Valuation contradiction:** The engine scores valuation at only 5.06 (weak), yet:
+   - PE trailing (25.1) is **27% below** historical average (37.2), signaling genuine cheapness vs. history.
+   - Analyst consensus is "strong_buy" with +33.3% upside.
+   - PS ratio of 10.0, while high in absolute terms, is standard for a mature mega-cap with 39.7% net margins.
+   
+   The valuation score undersells the opportunity relative to historical anchors and analyst views.
+
+2. **Technical inconsistency:** Price is **8.7% below 200-day MA** (oversold), not extended. The weak technical score (4.57) is sensible for a "pullback" trade, but the phrasing of the top negative feature ("price_vs_ma200=3.0") is misleading—the stock is actually well-positioned for accumulation at the limit price.
+
+3. **Cashflow anomaly noted but not critical:** The 62% OCF surge vs. 5-year average is flagged as a "warning." This inflates quality metrics slightly, but does not negate the strong fundamentals (ROE 29.6%, margins intact). The warning is appropriate, not a deal-breaker.
+
+4. **R/R check:**
+   - Entry: $409.26 (limit)
+   - Target: $562.5
+   - Stop: $356.06
+   - R/R = ($562.5 − $409.26) / ($409.26 − $356.06) = $153.24 / $53.2 ≈ **2.88** ✓ (very strong)
+
+5. **Action alignment:** "Accumulate on Pullback" is justified—technicals are weak but not broken; fundamentals are solid; limit price offers a 3:1 R/R with a long horizon. No critical stops; data quality is good.
+
+**Recommendation:** The trade is **sound** but the valuation block score is artificially suppressed. Agreement is **false** due to this mismatch, though the overall action and R/R are defensible.
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  MSFT  |  claude-haiku-4-5  |  2026-05-15 23:24:34
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1879 tokens
+  Output :    494 tokens
+  Total  :   2373 tokens
+  Cost   : $0.003479 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "MSFT",
+  "as_of": "2026-05-15",
+  "company_type": "Mature Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 9.16,
+    "valuation": 5.06,
+    "technical": 4.57,
+    "risk": 8.52,
+    "style_fit": 8.98
+  },
+  "horizon_scores": {
+    "short": 63.4,
+    "medium": 69.0,
+    "long": 79.0
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "risk.fcf_consistency=10.0",
+    "risk.debt_to_equity=10.0",
+    "quality.accruals_ratio=10.0"
+  ],
+  "top_negative_features": [
+    "technical.momentum_6m=1.3",
+    "valuation.ps_ratio=2.1",
+    "technical.price_vs_ma200=3.0"
+  ],
+  "stop_factors": [
+    {
+      "name": "Cashflow Anomaly",
+      "severity": "warning",
+      "description": "TTM OCF $164.5B vs 5yr avg $101.6B (\u00b1$24.8B) \u2014 62% surge; may distort DCF and quality metrics"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 25.1,
+      "pe_forward": 21.8,
+      "pe_hist_avg": 37.2,
+      "ps_ttm": 10.0,
+      "analyst_target_median": 562.5,
+      "analyst_upside_pct": 33.3,
+      "analyst_count": 54,
+      "analyst_consensus": "strong_buy"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 14.9,
+      "revenue_growth_3y_avg_pct": 12.5,
+      "gross_margin_pct": 68.3,
+      "net_margin_pct": 39.7,
+      "roe_pct": 29.6,
+      "fcf_yield_pct": 2.2
+    },
+    "technical": {
+      "price_vs_ma50_pct": 5.7,
+      "price_vs_ma200_pct": -8.7,
+      "atr_pct_daily": 2.7
+    },
+    "risk": {
+      "beta": 1.09,
+      "debt_to_equity": 0.13,
+      "short_interest_pct_float": 1.1
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 421.92,
+  "limit_price": 409.26,
+  "target_price": 562.5,
+  "stop_price": 356.06,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": false,
+  "contradictions": [
+    "technical score 4.57 vs. price_vs_ma200 -8.7% (price is 8.7% BELOW 200-day MA, indicating downtrend/weakness) — score should reflect this negative technicals more sharply",
+    "valuation score 5.06 appears internally inconsistent: ps_ttm=10.0 is very high (top negative feature), yet pe_trailing=25.1 is BELOW historical avg of 37.2 AND analyst upside is +33.3% with 54 strong_buy consensus — valuation block should score higher given forward PE 21.8 and consensus support",
+    "stop_factors lists 'Cashflow Anomaly' (warning severity) flagging 62% OCF surge distorting DCF, yet quality score 9.16 is extremely high and relies partly on fcf_consistency=10.0 — this contradiction not addressed in narrative",
+    "R/R = (562.5 − 409.26) / (409.26 − 356.06) = 153.24 / 53.2 ≈ 2.88, which is strong, but entry at limit_price 409.26 is 3.0% below current_price 421.92 — minor, but signals technical weakness already priced into limit order"
+  ],
+  "confidence": 0.68,
+  "narrative": "MSFT выглядит качественным долгосрочным активом (ROE 29.6%, рост 14.9%) с привлекательной оценкой (PE 25.1 vs. ист. avg 37.2, консенсус strong buy). Рекомендуется входить лимитом на откате ниже 200-дневного МА; R/R 2.88 компенсирует текущую техническую слабость.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  MSFT  |  claude-haiku-4-5  |  2026-05-15 23:46:48
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1879 tokens
+  Output :   1292 tokens
+  Total  :   3171 tokens
+  Cost   : $0.006671 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "MSFT",
+  "as_of": "2026-05-15",
+  "company_type": "Mature Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 9.16,
+    "valuation": 5.06,
+    "technical": 4.57,
+    "risk": 8.52,
+    "style_fit": 8.98
+  },
+  "horizon_scores": {
+    "short": 63.4,
+    "medium": 69.0,
+    "long": 79.0
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "risk.fcf_consistency=10.0",
+    "risk.debt_to_equity=10.0",
+    "quality.accruals_ratio=10.0"
+  ],
+  "top_negative_features": [
+    "technical.momentum_6m=1.3",
+    "valuation.ps_ratio=2.1",
+    "technical.price_vs_ma200=3.0"
+  ],
+  "stop_factors": [
+    {
+      "name": "Cashflow Anomaly",
+      "severity": "warning",
+      "description": "TTM OCF $164.5B vs 5yr avg $101.6B (\u00b1$24.8B) \u2014 62% surge; may distort DCF and quality metrics"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 25.1,
+      "pe_forward": 21.8,
+      "pe_hist_avg": 37.2,
+      "ps_ttm": 10.0,
+      "analyst_target_median": 562.5,
+      "analyst_upside_pct": 33.3,
+      "analyst_count": 54,
+      "analyst_consensus": "strong_buy"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 14.9,
+      "revenue_growth_3y_avg_pct": 12.5,
+      "gross_margin_pct": 68.3,
+      "net_margin_pct": 39.7,
+      "roe_pct": 29.6,
+      "fcf_yield_pct": 2.2
+    },
+    "technical": {
+      "price_vs_ma50_pct": 5.7,
+      "price_vs_ma200_pct": -8.7,
+      "atr_pct_daily": 2.7
+    },
+    "risk": {
+      "beta": 1.09,
+      "debt_to_equity": 0.13,
+      "short_interest_pct_float": 1.1
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 421.92,
+  "limit_price": 409.26,
+  "target_price": 562.5,
+  "stop_price": 356.06,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": false,
+  "contradictions": [
+    "technical score 4.57 (weak) is internally consistent with momentum_6m=1.3 and price_vs_ma200=-8.7%, BUT price_vs_ma200=-8.7% contradicts top_negative_features listing 'price_vs_ma200=3.0' — sign error or data mismatch",
+    "valuation score 5.06 (weak) conflicts with analyst_consensus='strong_buy', analyst_upside_pct=33.3%, and analyst_target_median=562.5 — these metrics support a higher valuation score despite PE 25.1 being reasonable for a 15% grower",
+    "valuation score 5.06 seems harsh: pe_trailing=25.1 is below historical_avg=37.2, revenue_growth_1y_pct=14.9% is healthy, analyst consensus is 'strong_buy' with 33% upside. A score of 5–6 typically signals expensive or shrinking names; MSFT is neither.",
+    "risk score 8.52 (strong) is appropriate given debt_to_equity=0.13, beta=1.09, and fcf_consistency=10.0, but 'Cashflow Anomaly' stop_factor (62% TTM surge vs 5yr avg) is severity='warning' and directly undermines the quality and risk scores — should trigger more caution or lower the rating",
+    "R/R calculation: (562.5−409.26)/(409.26−356.06) = 153.24/53.2 ≈ 2.88 — excellent; however, the 'Cashflow Anomaly' warning means DCF targets and quality metrics may be inflated, casting doubt on whether 562.5 target is reliable"
+  ],
+  "confidence": 0.62,
+  "narrative": "MSFT: качество и риск сильные (ROE 29.6%, долг минимален), технические показатели слабы (-8.7% к MA200), оценка спорна. Limit 409.26 разумен, R/R 2.88 привлекателен, но аномалия CF на 62% требует осторожности — целевая цена может быть завышена.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**Detailed Rationale:**
+
+1. **Valuation Score Contradiction (5.06):**  
+   The score is marked "weak," yet fundamentals don't justify it:
+   - PE 25.1 is *below* its 37.2 historical average (i.e., cheaper than usual).
+   - Revenue growth 14.9% YoY is solid for a $3T cap company.
+   - 54 analysts rate it "strong_buy" with 33% upside.  
+   A valuation score of 5 typically signals overvaluation or stagnation—neither applies. Score should be 6–7 at minimum.
+
+2. **Technical Score & Data Inconsistency:**  
+   Raw_metrics show `price_vs_ma200_pct: -8.7%` (stock *below* 200-day MA), yet top_negative_features list `price_vs_ma200=3.0`. This is a sign error. The actual data (-8.7%) supports a weak technical score, so the engine's 4.57 is reasonable, but the feature value is wrong.
+
+3. **Cashflow Anomaly Warning:**  
+   TTM OCF is 62% above the 5-year average—this is flagged as severity="warning". Such anomalies:
+   - May inflate accruals-based quality scores (which show 10.0 here).
+   - May render DCF-based target prices (562.5) unreliable.  
+   The engine correctly identified the issue but did NOT downgrade quality or risk sufficiently. This warning should either escalate severity or reduce confidence in the target.
+
+4. **R/R & Trade Mechanics:**  
+   - Entry (limit): 409.26  
+   - Target: 562.5  
+   - Stop: 356.06  
+   - R/R ≈ 2.88 ✓ (excellent)  
+   The trade structure is sound, but the Cashflow Anomaly casts doubt on whether the 562.5 target is achievable.
+
+5. **Long-Horizon Alignment:**  
+   For a long-horizon trade, weak technical (4.57) is *expected* and not a flaw. The long-horizon score of 79.0 correctly weights quality (35%) and risk (25%) heavily, where MSFT excels. Action matches horizon.
+
+6. **Analyst Consensus vs. Valuation Score Mismatch:**  
+   54 analysts say "strong_buy" but engine awards valuation a 5. This suggests the engine's valuation model is either overly strict or diverges from consensus—worth noting for user confidence.
+
+**Verdict:**  
+The recommendation (Accumulate on Pullback at 409.26) is *defensible*, but the block scores are internally misaligned. The valuation score is too harsh, and the Cashflow Anomaly warning is underweighted. Confidence is moderate (0.62) because the trade structure and long-term thesis are sound, but fundamental metric reliability is queried.
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  MSFT  |  claude-haiku-4-5  |  2026-05-16 09:17:55
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1879 tokens
+  Output :    876 tokens
+  Total  :   2755 tokens
+  Cost   : $0.005007 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "MSFT",
+  "as_of": "2026-05-16",
+  "company_type": "Mature Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 9.16,
+    "valuation": 5.06,
+    "technical": 4.57,
+    "risk": 8.52,
+    "style_fit": 8.98
+  },
+  "horizon_scores": {
+    "short": 63.4,
+    "medium": 69.0,
+    "long": 79.0
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "risk.fcf_consistency=10.0",
+    "risk.debt_to_equity=10.0",
+    "quality.accruals_ratio=10.0"
+  ],
+  "top_negative_features": [
+    "technical.momentum_6m=1.3",
+    "valuation.ps_ratio=2.1",
+    "technical.price_vs_ma200=3.0"
+  ],
+  "stop_factors": [
+    {
+      "name": "Cashflow Anomaly",
+      "severity": "warning",
+      "description": "TTM OCF $164.5B vs 5yr avg $101.6B (\u00b1$24.8B) \u2014 62% surge; may distort DCF and quality metrics"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 25.1,
+      "pe_forward": 21.8,
+      "pe_hist_avg": 37.2,
+      "ps_ttm": 10.0,
+      "analyst_target_median": 562.5,
+      "analyst_upside_pct": 33.3,
+      "analyst_count": 54,
+      "analyst_consensus": "strong_buy"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 14.9,
+      "revenue_growth_3y_avg_pct": 12.5,
+      "gross_margin_pct": 68.3,
+      "net_margin_pct": 39.7,
+      "roe_pct": 29.6,
+      "fcf_yield_pct": 2.2
+    },
+    "technical": {
+      "price_vs_ma50_pct": 5.7,
+      "price_vs_ma200_pct": -8.7,
+      "atr_pct_daily": 2.7
+    },
+    "risk": {
+      "beta": 1.09,
+      "debt_to_equity": 0.13,
+      "short_interest_pct_float": 1.1
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 421.92,
+  "limit_price": 409.26,
+  "target_price": 562.5,
+  "stop_price": 356.06,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": false,
+  "contradictions": [
+    "valuation score 5.06 (weak) conflicts with analyst_consensus 'strong_buy', analyst_upside_pct 33.3%, and pe_trailing 25.1 being 33% BELOW historical average 37.2 — this is materially undervalued, not neutral",
+    "technical score 4.57 contradicts price_vs_ma200_pct -8.7 (price 8.7% BELOW 200-day MA) — this is oversold/pullback setup, not weak momentum; negative price position typically supports technical entry at limit",
+    "short horizon score 63.4 appears too low given strong analyst consensus, 33% upside, and oversold technicals (price below MA200) — short-term catalysts exist",
+    "cashflow_anomaly warning severity 'warning' vs action 'Accumulate on Pullback' — if TTM OCF is +62% above trend and distorts DCF, this creates material uncertainty in fair value; 'warning' severity should elevate abstain risk or downgrade confidence"
+  ],
+  "confidence": 0.62,
+  "narrative": "MSFT торгуется с дисконтом к истории (PE на 33% ниже среднего) при 33% апсайду аналитиков и сильных фундаментальных показателях (ROE 29.6%, маржа 39.7%). Однако всплеск OCF на +62% требует осторожности при оценке справедливой стоимости; лимитный ордер на 409.26 обоснован текущей перепроданностью (цена -8.7% к MA200).",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**Key findings:**
+
+1. **Valuation contradiction:** Score 5.06 (weak) is inconsistent with the data. PE 25.1 is **33% below** the 37.2 historical average, and analyst consensus is "strong_buy" with 33% upside. This should be a valuation score ≥7, not <5.
+
+2. **Technical score misalignment:** Score 4.57 seems mischaracterized. Price is **8.7% below MA200** — a classic oversold pullback setup that *supports* the limit-order action. The negative price_vs_ma200 is actually *bullish* for entry, not bearish.
+
+3. **Cashflow anomaly concern:** The warning-level stop factor flags a 62% TTM OCF surge above trend. While the engine still recommends accumulation, this uncertainty should lower overall confidence and justify the limit-order downgrade. The anomaly may inflate quality metrics and distort DCF-based valuations.
+
+4. **Short-term score underweighting:** 63.4 for the short horizon seems conservative given oversold technicals, strong analyst upside, and no critical stop factors. Should be 65–70.
+
+**R/R verification:**
+- Entry: 409.26 (limit)
+- Target: 562.5
+- Stop: 356.06
+- R/R = (562.5 − 409.26) / (409.26 − 356.06) = **153.24 / 53.2 ≈ 2.88** ✓ (favorable)
+
+**Verdict:** Action "Accumulate on Pullback" is justified by oversold technicals and valuation, but internal score consistency is poor. The limit price and R/R are sound; proceed with caution due to the cashflow anomaly.
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  MSFT  |  claude-haiku-4-5  |  2026-05-16 18:10:51
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1876 tokens
+  Output :    962 tokens
+  Total  :   2838 tokens
+  Cost   : $0.005349 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in English (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 sentences in English for a Telegram signal post>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "MSFT",
+  "as_of": "2026-05-16",
+  "company_type": "Mature Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 9.16,
+    "valuation": 5.07,
+    "technical": 4.57,
+    "risk": 8.52,
+    "style_fit": 8.98
+  },
+  "horizon_scores": {
+    "short": 63.4,
+    "medium": 69.0,
+    "long": 79.0
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "risk.fcf_consistency=10.0",
+    "risk.debt_to_equity=10.0",
+    "quality.accruals_ratio=10.0"
+  ],
+  "top_negative_features": [
+    "technical.momentum_6m=1.3",
+    "valuation.ps_ratio=2.1",
+    "technical.price_vs_ma200=3.0"
+  ],
+  "stop_factors": [
+    {
+      "name": "Cashflow Anomaly",
+      "severity": "warning",
+      "description": "TTM OCF $164.5B vs 5yr avg $101.6B (\u00b1$24.8B) \u2014 62% surge; may distort DCF and quality metrics"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 25.1,
+      "pe_forward": 21.8,
+      "pe_hist_avg": 37.2,
+      "ps_ttm": 10.0,
+      "analyst_target_median": 562.5,
+      "analyst_upside_pct": 33.3,
+      "analyst_count": 54,
+      "analyst_consensus": "strong_buy"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 14.9,
+      "revenue_growth_3y_avg_pct": 12.5,
+      "gross_margin_pct": 68.3,
+      "net_margin_pct": 39.7,
+      "roe_pct": 29.6,
+      "fcf_yield_pct": 2.2
+    },
+    "technical": {
+      "price_vs_ma50_pct": 5.7,
+      "price_vs_ma200_pct": -8.7,
+      "atr_pct_daily": 2.7
+    },
+    "risk": {
+      "beta": 1.09,
+      "debt_to_equity": 0.13,
+      "short_interest_pct_float": 1.1
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 421.92,
+  "limit_price": 404.81,
+  "target_price": 562.5,
+  "stop_price": 356.06,
+  "horizon_label": "long (1\u20135 years)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": true,
+  "contradictions": [],
+  "confidence": 0.92,
+  "narrative": "MSFT shows excellent long-term fundamentals (ROE 29.6%, net margin 39.7%, strong analyst consensus at 33% upside) with fortress balance sheet (D/E 0.13), but technicals are weak (momentum 1.3, price -8.7% below MA200). Accumulate on pullback to 404.81 offers 1.2× risk/reward with strong 79/100 long-horizon score.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**Verification Summary:**
+
+1. **Block Score Consistency:** Scores are internally coherent for a long-horizon, mature-tech profile.
+   - Quality (9.16): Justified by revenue growth 14.9%, gross margin 68.3%, net margin 39.7%, ROE 29.6%, and accruals ratio 10.0. ✓
+   - Risk (8.52): Debt/equity 0.13 and FCF consistency 10.0 are fortress-like; beta 1.09 is modest. ✓
+   - Style Fit (8.98): Mature tech comps with strong moat fit well. ✓
+   - Valuation (5.07): PE trailing 25.1 is below historical 37.2; PS 10.0 is elevated but acceptable given growth and margin profile. ✓
+   - Technical (4.57): Weak momentum (1.3), price -8.7% below MA200, but 5.7% above MA50 shows recent stabilization. Not contradictory for long-horizon. ✓
+
+2. **Raw Metrics Cross-Check:**
+   - **Valuation alignment:** PE 25.1 < historical 37.2; analyst consensus "strong_buy" with 33% upside; PS 10.0 high but supported by 39.7% net margin and 29.6% ROE. Valuation score of 5.07 is conservative but defensible given elevated PS.
+   - **Quality alignment:** Revenue growth 14.9%, net margin 39.7%, ROE 29.6% support quality 9.16. No contradiction.
+   - **Risk alignment:** D/E 0.13 and FCF consistency 10.0 justify risk 8.52. Beta 1.09 is low. ✓
+   - **Technical alignment:** Price -8.7% below MA200 and weak 6m momentum (1.3) justify technical 4.57 and "Accumulate on Pullback" action. ✓
+
+3. **Trade Action Verification:**
+   - Action is "Accumulate on Pullback" with limit 404.81, stop 356.06, target 562.5.
+   - **R/R = (562.5 − 404.81) / (404.81 − 356.06) = 157.69 / 48.75 ≈ 3.24** ✓ Excellent risk/reward.
+   - Weak technicals (price -8.7% below MA200, momentum 1.3) justify pullback entry vs. market accumulation.
+   - Stop factor ("Cashflow Anomaly" – warning severity) notes 62% OCF surge; this inflates quality but does not trigger critical stop or alter action suitability.
+
+4. **Horizon Alignment:**
+   - Long-horizon (79/100) score weights quality (35%) and risk (25%) heavily; weak technics (10%) are appropriately de-emphasized. Current scores support this weighting.
+
+5. **No Critical Contradictions:**
+   - Analyst consensus "strong_buy" with 33% upside aligns with "Accumulate on Pullback."
+   - All block scores support medium/long-term accumulation; weak technical is the *reason* for limit order, not a flaw.
+   - Data quality "good" and no critical_stop_factors present.
+
+──────────────────────────────────────────────────────────────────────

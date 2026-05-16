@@ -1,0 +1,1495 @@
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  NVDA  |  claude-haiku-4-5  |  2026-05-15 21:39:18
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1939 tokens
+  Output :   1423 tokens
+  Total  :   3362 tokens
+  Cost   : $0.007243 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "NVDA",
+  "as_of": "2026-05-15",
+  "company_type": "Hypergrowth Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 7.66,
+    "valuation": 4.31,
+    "technical": 8.4,
+    "risk": 5.44,
+    "style_fit": 8.39
+  },
+  "horizon_scores": {
+    "short": 67.7,
+    "medium": 65.4,
+    "long": 67.9
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "style_fit.revenue_growth_style=10.0",
+    "risk.fcf_consistency=10.0",
+    "technical.relative_strength=10.0"
+  ],
+  "top_negative_features": [
+    "quality.accruals_ratio=0.0",
+    "valuation.ps_ratio=0.0",
+    "risk.beta=2.5"
+  ],
+  "stop_factors": [
+    {
+      "name": "Premium Valuation (P/S)",
+      "severity": "warning",
+      "description": "P/S ratio 30.1x \u2014 priced for extraordinary growth; any slowdown or margin miss could trigger sharp re-rating"
+    },
+    {
+      "name": "High Volatility at Premium Valuation",
+      "severity": "warning",
+      "description": "Beta 2.2 with P/E 46 \u2014 high-beta name at expensive valuation; drawdowns of 30-50% are historically common"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 46.4,
+      "pe_forward": 20.0,
+      "pe_hist_avg": 39.2,
+      "ps_ttm": 30.1,
+      "analyst_target_median": 275.0,
+      "analyst_upside_pct": 21.1,
+      "analyst_count": 57,
+      "analyst_consensus": "strong_buy"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 65.5,
+      "revenue_growth_3y_avg_pct": 101.8,
+      "gross_margin_pct": 59.7,
+      "net_margin_pct": 46.4,
+      "roe_pct": 76.3,
+      "fcf_yield_pct": 0.9
+    },
+    "technical": {
+      "price_vs_ma50_pct": 17.6,
+      "price_vs_ma200_pct": 22.2,
+      "atr_pct_daily": 3.61
+    },
+    "risk": {
+      "beta": 2.24,
+      "debt_to_equity": 0.05,
+      "short_interest_pct_float": 1.2
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 227.16,
+  "limit_price": 218.71,
+  "target_price": 275.0,
+  "stop_price": 194.65,
+  "horizon_label": "medium (3\u201312 months)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": false,
+  "contradictions": [
+    "Valuation score 4.31 (weak) contradicts analyst_consensus 'strong_buy' with 21.1% upside; however, P/S 30.1x and P/E 46.4x trailing ARE objectively expensive even for hypergrowth. Score is justified; consensus does not invalidate the warning.",
+    "Risk score 5.44 (acceptable) vs. beta 2.24 + P/E 46.4x at premium valuation: score slightly underweights the severity of drawdown risk. Beta 2.2+ at expensive multiples historically implies 30-50% corrections are plausible; a risk score of 4.5–5.0 would better reflect tail volatility.",
+    "Quality score 7.66 (strong) is reasonable given revenue_growth_1y_pct 65.5%, net_margin_pct 46.4%, roe_pct 76.3%; however, accruals_ratio=0.0 (top negative) signals potential earnings quality concern. Score should flag this more explicitly in narrative."
+  ],
+  "confidence": 0.72,
+  "narrative": "NVDA показывает исключительный рост (65.5% YoY) и качество прибыли (46.4% net margin), но торгуется на экстремальной оценке (P/S 30x, P/E 46x trailing). Входить на снижении к 218.71 с целью 275; стоп 194.65 дает R/R 2.85, но волатильность (beta 2.24) требует дисциплины.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+### Verification Notes
+
+**R/R Calculation (at limit_price):**
+- Entry: 218.71
+- Target: 275.0
+- Stop: 194.65
+- R/R = (275.0 − 218.71) / (218.71 − 194.65) = 56.29 / 24.06 = **2.34** ✓
+- Favorable (R/R > 1.5).
+
+**Block Score Internal Consistency:**
+- **Valuation 4.31** correctly reflects P/S 30.1x and P/E 46.4x trailing—expensive even by hypergrowth standards. Analyst upside (21.1%) does not invalidate the warning; the score appropriately signals overvaluation risk.
+- **Quality 7.66** is supported by revenue_growth 65.5%, net_margin 46.4%, ROE 76.3%. The accruals_ratio=0.0 (top negative) is a red flag for earnings quality but does not justify a score < 7 given the other metrics.
+- **Technical 8.4** aligns with relative_strength=10.0 (top positive) and price 22.2% above MA200 (extended but not contradictory for a momentum name).
+- **Risk 5.44** is marginally lenient: beta 2.24 + expensive valuation create significant downside tail risk. A score of 4.5–5.0 would be more honest, but 5.44 is not indefensible given low debt (0.05 D/E) and low short interest (1.2%).
+- **Style_fit 8.39** is justified: revenue_growth_style=10.0 and analyst consensus "strong_buy" confirm alignment with growth mandate.
+
+**Horizon Weighting:**
+- Medium horizon (3–12 months): valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%.
+- Weighted: 4.31×0.30 + 7.66×0.25 + 8.4×0.20 + 5.44×0.15 + 8.39×0.10 = 1.29 + 1.92 + 1.68 + 0.82 + 0.84 = **6.55 ≈ 65.4** ✓ (matches reported medium score).
+
+**Trade Action Alignment:**
+- "Accumulate on Pullback" is appropriate: technical is strong (8.4) but price is extended (22.2% above MA200); limit_price 218.71 below current 227.16 captures a pullback entry with favorable R/R (2.34) and medium horizon scores (65.4) support the trade logic.
+
+**Critical Stop Factors:**
+- Two warnings (Premium Valuation, High Volatility at Premium) are well-documented. Engine appropriately flagged risks without escalating to "Avoid" because analyst consensus, FCF consistency, and relative strength offer offsetting upside.
+
+**Minor Issues (not contradictions):**
+- Accruals_ratio=0.0 (top negative) deserves clearer narrative acknowledgment in quality assessment.
+- Risk score could be slightly lower (4.5–5.0) to better reflect tail drawdown probability given beta 2.24.
+
+**Confidence Downgrade Rationale:**
+Confidence is 0.72 (not higher) because:
+1. Premium valuation (P/S 30x, P/E 46x trailing) creates meaningful re-rating risk if growth decelerates even modestly.
+2. Beta 2.24 implies 30–50% corrections are historically plausible; stop at 194.65 is ~14.6% from entry—a tight risk budget for this volatility profile.
+3. Accruals_ratio=0.0 (earnings quality concern) is underweighted in the quality score narrative.
+
+Despite these caveats, the R/R (2.34) and analyst upside (21.1%) support the "Accumulate on Pullback" action *if* the medium-term thesis holds. Execution discipline at the limit_price is essential.
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  NVDA  |  claude-haiku-4-5  |  2026-05-15 21:40:07
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1939 tokens
+  Output :   1361 tokens
+  Total  :   3300 tokens
+  Cost   : $0.006995 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "NVDA",
+  "as_of": "2026-05-15",
+  "company_type": "Hypergrowth Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 7.66,
+    "valuation": 4.31,
+    "technical": 8.4,
+    "risk": 5.44,
+    "style_fit": 8.39
+  },
+  "horizon_scores": {
+    "short": 67.7,
+    "medium": 65.4,
+    "long": 67.9
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "style_fit.revenue_growth_style=10.0",
+    "risk.fcf_consistency=10.0",
+    "technical.relative_strength=10.0"
+  ],
+  "top_negative_features": [
+    "quality.accruals_ratio=0.0",
+    "valuation.ps_ratio=0.0",
+    "risk.beta=2.5"
+  ],
+  "stop_factors": [
+    {
+      "name": "Premium Valuation (P/S)",
+      "severity": "warning",
+      "description": "P/S ratio 30.1x \u2014 priced for extraordinary growth; any slowdown or margin miss could trigger sharp re-rating"
+    },
+    {
+      "name": "High Volatility at Premium Valuation",
+      "severity": "warning",
+      "description": "Beta 2.2 with P/E 46 \u2014 high-beta name at expensive valuation; drawdowns of 30-50% are historically common"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 46.4,
+      "pe_forward": 20.0,
+      "pe_hist_avg": 39.2,
+      "ps_ttm": 30.1,
+      "analyst_target_median": 275.0,
+      "analyst_upside_pct": 20.9,
+      "analyst_count": 57,
+      "analyst_consensus": "strong_buy"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 65.5,
+      "revenue_growth_3y_avg_pct": 101.8,
+      "gross_margin_pct": 59.7,
+      "net_margin_pct": 46.4,
+      "roe_pct": 76.3,
+      "fcf_yield_pct": 0.9
+    },
+    "technical": {
+      "price_vs_ma50_pct": 17.8,
+      "price_vs_ma200_pct": 22.3,
+      "atr_pct_daily": 3.61
+    },
+    "risk": {
+      "beta": 2.24,
+      "debt_to_equity": 0.05,
+      "short_interest_pct_float": 1.2
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 227.44,
+  "limit_price": 218.71,
+  "target_price": 275.0,
+  "stop_price": 194.65,
+  "horizon_label": "medium (3\u201312 months)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": false,
+  "contradictions": [
+    "Valuation score 4.31 is appropriate given P/S 30.1x and P/E 46.4x, but quality score 7.66 seems inconsistent with extreme premium valuation at such high multiples — typical quality scores at this valuation level are 5–6, not 7.66.",
+    "Risk score 5.44 (acceptable) conflicts with beta 2.24 + P/E 46.4x + P/S 30.1x profile. At this valuation and volatility, risk score should be ≤4.5 to reflect real drawdown exposure (30–50% swings noted in stop factors).",
+    "Medium-term horizon score 65.4 relies heavily on valuation (30% weight), but valuation score is only 4.31. The math doesn't support 65.4 unless quality/technical are offsetting heavily — they are (7.66 + 8.4), but this masks that the portfolio is fundamentally exposed to a 30-50% re-rating risk that the score doesn't reflect.",
+    "Style fit score 8.39 is justified (revenue growth 65.5% ≈ hypergrowth), but the trade action 'Accumulate on Pullback' with limit_price 218.71 (−3.8% from market) appears conservative given strong technicals (8.4) and style fit. If medium score is 65.4, limit price should be deeper or action should be 'Accumulate' — the mismatch suggests the engine detected valuation risk but didn't fully downgrade the trade."
+  ],
+  "confidence": 0.62,
+  "narrative": "NVDA показывает отличный рост и технику, но торгуется на экстремальных оценках (P/S 30x, P/E 46x). Лимит 218.71 защищает от переоценки; риск пересмотра 30–50% оценок заложен в стоп 194.65.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**COMMENTARY:**
+
+1. **Valuation vs. Quality Contradiction:**  
+   The valuation score (4.31) correctly identifies NVDA as expensive — P/S 30.1x, P/E 46.4x, and P/S ratio well above typical hypergrowth peers. However, the quality score (7.66) is overstated. While the raw metrics show exceptional fundamentals (net margin 46.4%, ROE 76.3%, revenue growth 65.5%), a score of 7.66 at P/E 46.4x is inconsistent with prudent scoring. At such extreme valuation, quality should be capped at ~6.5, not 7.66, because quality cannot offset valuation risk in the near term.
+
+2. **Risk Score Under-Reflects Volatility:**  
+   Beta 2.24 + P/S 30.1x + P/E 46.4x is a high-risk combination, yet risk score is 5.44 (acceptable range). The stop factors correctly warn of 30–50% drawdown risk. Risk should be ≤4.5 to reflect this exposure. The low debt-to-equity (0.05) and FCF consistency (10.0) boost the score, but they don't eliminate market risk at this valuation.
+
+3. **Horizon Score Masking Valuation Fragility:**  
+   Medium-term 65.4 appears reasonable on the surface (valuation 30% weight = 4.31 × 0.30 ≈ 1.3 points), but the calculation only works because quality (7.66 × 0.25 = 1.9) and technical (8.4 × 0.20 = 1.7) are so high. This masks that the portfolio is structurally fragile: any earnings miss or sentiment shift could collapse the entire valuation. A score of 65.4 *suggests* moderate confidence, but the underlying data suggests 55–60 is more honest.
+
+4. **Trade Action Alignment:**  
+   "Accumulate on Pullback" at limit_price 218.71 is *appropriate* and internally consistent. The −3.8% limit suggests the engine recognized technicals are extended (price 17.8% above MA50, 22.3% above MA200). R/R analysis:  
+   - Entry (limit): 218.71  
+   - Target: 275.0 (gain: +25.8%)  
+   - Stop: 194.65 (loss: −11.0%)  
+   - **R/R ≈ 2.35** ✓ (acceptable)  
+   The limit price is justified and the risk-reward at limit is sound.
+
+5. **No Critical Stop Factors Triggered:**  
+   The engine correctly lists valuation and volatility as "warning" (not "critical"), and the trade action remains active. This is appropriate — NVDA's analyst consensus (strong_buy, 57 analysts, +20.9% upside) supports cautious accumulation on weakness.
+
+**Final Verdict:**  
+The trade is defensible, but the block scores (especially quality 7.66 and risk 5.44) are **generous** relative to the underlying valuation and volatility profile. The "Accumulate on Pullback" action at limit_price 218.71 is the right call *despite* the inflated scores — it shows the engine has embedded a conservative guard even though the headline scores don't reflect the full risk. Confidence is moderate (0.62) because the scoring masks fragility, but the actual trade mechanics are sound.
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  NVDA  |  claude-haiku-4-5  |  2026-05-15 21:41:48
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1939 tokens
+  Output :    922 tokens
+  Total  :   2861 tokens
+  Cost   : $0.005239 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "NVDA",
+  "as_of": "2026-05-15",
+  "company_type": "Hypergrowth Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 7.66,
+    "valuation": 4.31,
+    "technical": 8.4,
+    "risk": 5.44,
+    "style_fit": 8.39
+  },
+  "horizon_scores": {
+    "short": 67.7,
+    "medium": 65.4,
+    "long": 67.9
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "style_fit.revenue_growth_style=10.0",
+    "risk.fcf_consistency=10.0",
+    "technical.relative_strength=10.0"
+  ],
+  "top_negative_features": [
+    "quality.accruals_ratio=0.0",
+    "valuation.ps_ratio=0.0",
+    "risk.beta=2.5"
+  ],
+  "stop_factors": [
+    {
+      "name": "Premium Valuation (P/S)",
+      "severity": "warning",
+      "description": "P/S ratio 30.1x \u2014 priced for extraordinary growth; any slowdown or margin miss could trigger sharp re-rating"
+    },
+    {
+      "name": "High Volatility at Premium Valuation",
+      "severity": "warning",
+      "description": "Beta 2.2 with P/E 46 \u2014 high-beta name at expensive valuation; drawdowns of 30-50% are historically common"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 46.4,
+      "pe_forward": 20.0,
+      "pe_hist_avg": 39.2,
+      "ps_ttm": 30.1,
+      "analyst_target_median": 275.0,
+      "analyst_upside_pct": 20.9,
+      "analyst_count": 57,
+      "analyst_consensus": "strong_buy"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 65.5,
+      "revenue_growth_3y_avg_pct": 101.8,
+      "gross_margin_pct": 59.7,
+      "net_margin_pct": 46.4,
+      "roe_pct": 76.3,
+      "fcf_yield_pct": 0.9
+    },
+    "technical": {
+      "price_vs_ma50_pct": 17.8,
+      "price_vs_ma200_pct": 22.3,
+      "atr_pct_daily": 3.61
+    },
+    "risk": {
+      "beta": 2.24,
+      "debt_to_equity": 0.05,
+      "short_interest_pct_float": 1.2
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 227.43,
+  "limit_price": 218.71,
+  "target_price": 275.0,
+  "stop_price": 194.65,
+  "horizon_label": "medium (3\u201312 months)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": false,
+  "contradictions": [
+    "Valuation score 4.31 is appropriately weak (P/S 30.1x, P/E 46.4x at premium multiples), but this directly contradicts the 'Accumulate on Pullback' action. The engine itself flags 'Premium Valuation (P/S)' and 'High Volatility at Premium Valuation' as warnings, yet still recommends entry.",
+    "Quality score 7.66 seems generous given accruals_ratio=0.0 (flagged as top negative feature), though revenue growth 65.5% and net margin 46.4% partially justify it.",
+    "Risk score 5.44 masks a serious contradiction: beta 2.24 and P/E 46.4 at premium valuation creates high drawdown risk (30–50% historically common per stop factors), yet score hovers near 'acceptable' threshold. For medium horizon, this mismatch is material.",
+    "R/R analysis reveals the core issue: (275.0 − 218.71) / (218.71 − 194.65) = 56.29 / 24.06 = 2.34. While R/R is favourable, the limit_price entry of 218.71 (−3.8% from current) assumes a pullback that may not materialize given price_vs_ma200_pct = 22.3% (significantly extended). No contradiction per se, but fragile.",
+    "Analyst consensus 'strong_buy' + 20.9% upside aligns with the target, but the engine's own valuation warning contradicts recommending entry at near-current levels, even on pullback."
+  ],
+  "confidence": 0.62,
+  "narrative": "NVDA демонстрирует отличный технический профиль (Relative Strength 10.0) и фундаментальный рост (65.5% YoY), но торгуется на премиум-мультипликаторах (P/S 30.1x, Beta 2.24) с риском глубокой коррекции; ограничивающий ордер 218.71 перехватывает отскок, но требует дисциплины при удержании позиции.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**Key observations:**
+
+1. **Valuation contradiction is intentional, not accidental**: The engine correctly flags premium valuation (P/S 30.1x, P/E 46.4x) as a warning, yet recommends "Accumulate on Pullback." This is *not* a logical error—it reflects a coherent strategy: accept valuation risk in exchange for strong technicals and growth profile, but only at a discounted entry (limit order). The score of 4.31 on valuation honestly reflects the risk.
+
+2. **R/R is healthy (2.34:1)**, justifying the pullback entry tactically, but the 22.3% extension above MA200 means the pullback may be slow or insufficient.
+
+3. **Quality and risk scores are internally consistent but tension exists**: Beta 2.24 + premium P/E = high volatility at expensive levels. Medium-horizon investors should expect sharp drawdowns if growth falters.
+
+4. **No critical_stop_factors are flagged** (array is empty), which is odd given the two explicit warnings. The engine is treating them as manageable via the limit order, not as kill-switches.
+
+**Verdict**: Agreement is marginal because the recommendation is tactically sound (limit order at sensible R/R) but strategically tense (buying a premium-priced, high-beta stock on momentum, even on pullback). Confidence is moderate (0.62) because execution risk is high—the pullback may not arrive, or may be shallow.
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  NVDA  |  claude-haiku-4-5  |  2026-05-15 22:16:27
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1939 tokens
+  Output :    914 tokens
+  Total  :   2853 tokens
+  Cost   : $0.005207 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "NVDA",
+  "as_of": "2026-05-15",
+  "company_type": "Hypergrowth Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 7.66,
+    "valuation": 4.34,
+    "technical": 8.37,
+    "risk": 5.44,
+    "style_fit": 8.39
+  },
+  "horizon_scores": {
+    "short": 67.6,
+    "medium": 65.5,
+    "long": 67.9
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "style_fit.revenue_growth_style=10.0",
+    "risk.fcf_consistency=10.0",
+    "technical.relative_strength=10.0"
+  ],
+  "top_negative_features": [
+    "quality.accruals_ratio=0.0",
+    "valuation.ps_ratio=0.0",
+    "risk.beta=2.5"
+  ],
+  "stop_factors": [
+    {
+      "name": "Premium Valuation (P/S)",
+      "severity": "warning",
+      "description": "P/S ratio 29.8x \u2014 priced for extraordinary growth; any slowdown or margin miss could trigger sharp re-rating"
+    },
+    {
+      "name": "High Volatility at Premium Valuation",
+      "severity": "warning",
+      "description": "Beta 2.2 with P/E 46 \u2014 high-beta name at expensive valuation; drawdowns of 30-50% are historically common"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 46.0,
+      "pe_forward": 19.8,
+      "pe_hist_avg": 39.2,
+      "ps_ttm": 29.8,
+      "analyst_target_median": 275.0,
+      "analyst_upside_pct": 22.0,
+      "analyst_count": 57,
+      "analyst_consensus": "strong_buy"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 65.5,
+      "revenue_growth_3y_avg_pct": 101.8,
+      "gross_margin_pct": 59.7,
+      "net_margin_pct": 46.4,
+      "roe_pct": 76.3,
+      "fcf_yield_pct": 0.9
+    },
+    "technical": {
+      "price_vs_ma50_pct": 16.7,
+      "price_vs_ma200_pct": 21.2,
+      "atr_pct_daily": 3.64
+    },
+    "risk": {
+      "beta": 2.24,
+      "debt_to_equity": 0.05,
+      "short_interest_pct_float": 1.2
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 225.32,
+  "limit_price": 218.71,
+  "target_price": 275.0,
+  "stop_price": 194.65,
+  "horizon_label": "medium (3\u201312 months)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": false,
+  "contradictions": [
+    "valuation score 4.34 (weak) vs. analyst_consensus 'strong_buy' with 22% upside — score underweights analyst view",
+    "valuation score 4.34 with ps_ratio flagged as 0.0 (best-case) but ps_ttm=29.8x is genuinely expensive; scoring logic appears inverted or miscalibrated",
+    "risk score 5.44 (marginal) with beta=2.24 and stop_factors warning of '30-50% drawdowns historically' — risk score should be lower (≤4) for true high-volatility exposure",
+    "quality score 7.66 supported by strong metrics (revenue_growth 65.5%, net_margin 46.4%, roe 76.3%) but accruals_ratio=0.0 (perfect) seems implausible for a company of this scale — data quality flag warranted",
+    "medium horizon score 65.5 is acceptable but marginal given valuation 30%, quality 25% weights — quality=7.66 + valuation=4.34 drag score below 70 threshold; action 'Accumulate on Pullback' is reasonable but not enthusiastic"
+  ],
+  "confidence": 0.72,
+  "narrative": "NVDA: высокий рост и маржины, но переоценена на 29.8x P/S при бете 2.24. Лучше войти на откате к 218.71 (R/R 2.9) с целью 275.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**Rationale:**
+
+1. **Valuation paradox**: The engine scores valuation at 4.34 (weak) — which is correct given ps_ttm=29.8x, pe_trailing=46x, and the multiple-compression risk explicitly noted in stop_factors. However, analyst_consensus="strong_buy" with +22% upside from current price, and pe_forward=19.8x suggests forward earnings growth justifies part of the premium. The score isn't *wrong*, but the narrative should acknowledge that consensus is bullish *despite* current valuation risk.
+
+2. **Risk underweight**: Beta=2.24 with explicit warnings of 30–50% drawdowns, yet risk score=5.44 (middle of range). For a medium-horizon trade with a 218.71 entry, a $23.66 stop ($194.65) is only 10.8% away — tight for a 2.24-beta name. Risk should score ≤4.
+
+3. **Quality metrics are phenomenal** (rev growth 65.5%, net margin 46.4%, ROE 76.3%) supporting quality=7.66. The accruals_ratio=0.0 perfect score is a minor red flag (unlikely for a real company), but doesn't invalidate the strong underlying metrics.
+
+4. **R/R check**: (275 − 218.71) / (218.71 − 194.65) = 56.29 / 24.06 = **2.34** — excellent R/R justifies "Accumulate on Pullback" action. The limit order addresses the technical extension (price 21.2% above MA200) and valuation risk.
+
+5. **Horizon alignment**: Medium-term action is sound — quality and growth support long-term hold, but near-term technicals (extended) and valuation (expensive) warrant limit entry. Score of 65.5 on medium horizon is borderline acceptable for an "on Pullback" trigger.
+
+**No critical stop factors** are marked as blocking, and abstain is false because data quality is good, R/R is healthy, and action aligns with score profile (pullback entry addresses known risks).
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  NVDA  |  claude-haiku-4-5  |  2026-05-16 09:17:35
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1939 tokens
+  Output :    550 tokens
+  Total  :   2489 tokens
+  Cost   : $0.003751 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in Russian (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 предложения на русском для Telegram-поста>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "NVDA",
+  "as_of": "2026-05-16",
+  "company_type": "Hypergrowth Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 7.66,
+    "valuation": 4.34,
+    "technical": 8.37,
+    "risk": 5.44,
+    "style_fit": 8.39
+  },
+  "horizon_scores": {
+    "short": 67.6,
+    "medium": 65.5,
+    "long": 67.9
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "style_fit.revenue_growth_style=10.0",
+    "risk.fcf_consistency=10.0",
+    "technical.relative_strength=10.0"
+  ],
+  "top_negative_features": [
+    "quality.accruals_ratio=0.0",
+    "valuation.ps_ratio=0.0",
+    "risk.beta=2.5"
+  ],
+  "stop_factors": [
+    {
+      "name": "Premium Valuation (P/S)",
+      "severity": "warning",
+      "description": "P/S ratio 29.8x \u2014 priced for extraordinary growth; any slowdown or margin miss could trigger sharp re-rating"
+    },
+    {
+      "name": "High Volatility at Premium Valuation",
+      "severity": "warning",
+      "description": "Beta 2.2 with P/E 46 \u2014 high-beta name at expensive valuation; drawdowns of 30-50% are historically common"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 46.1,
+      "pe_forward": 19.8,
+      "pe_hist_avg": 39.2,
+      "ps_ttm": 29.8,
+      "analyst_target_median": 275.0,
+      "analyst_upside_pct": 22.0,
+      "analyst_count": 57,
+      "analyst_consensus": "strong_buy"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 65.5,
+      "revenue_growth_3y_avg_pct": 101.8,
+      "gross_margin_pct": 59.7,
+      "net_margin_pct": 46.4,
+      "roe_pct": 76.3,
+      "fcf_yield_pct": 0.9
+    },
+    "technical": {
+      "price_vs_ma50_pct": 16.7,
+      "price_vs_ma200_pct": 21.2,
+      "atr_pct_daily": 3.64
+    },
+    "risk": {
+      "beta": 2.24,
+      "debt_to_equity": 0.05,
+      "short_interest_pct_float": 1.2
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 225.32,
+  "limit_price": 218.71,
+  "target_price": 275.0,
+  "stop_price": 194.65,
+  "horizon_label": "medium (3\u201312 months)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": false,
+  "contradictions": [
+    "Valuation score 4.34 is internally consistent with P/S 29.8x and P/E 46.1x at high growth, BUT quality score 7.66 seems high given accruals_ratio=0.0 (red flag for earnings quality) — quality should penalize this more.",
+    "Risk score 5.44 ('acceptable') contradicts beta 2.24 + P/E 46.1x at premium valuation: this is explicitly flagged as 'High Volatility at Premium Valuation' in stop_factors, yet risk score does not reflect critical danger. Score should be < 4.",
+    "Medium-horizon score 65.5 relies heavily on valuation (30% weight) which scores only 4.34 — yet score remains in 'acceptable' range. This is mathematically borderline but narratively misleading: the recommendation leans on technicals (8.37) to compensate for fundamentals.",
+    "Analyst consensus 'strong_buy' + 22% upside, yet engine downgrades to 'Accumulate on Pullback' (not 'Accumulate'). This is NOT a contradiction if technicals or R/R justify caution, but the R/R at limit is favourable (275−218.71)/(218.71−194.65) ≈ 2.42, which is strong. Downgrade is defensible only because price is 16.7% above MA50 and 21.2% above MA200 (extended), justifying wait for pullback — this logic is sound."
+  ],
+  "confidence": 0.72,
+  "narrative": "NVDA демонстрирует экстраординарный рост (65% годовых) и отличные маржи (46% net), но переоценка (P/S 29.8x) при высокой волатильности (β=2.24) требует входа на отступлении. Целевой риск/прибыль 2.4:1 от 218.71$ привлекателен для сильного роста, но дождитесь коррекции.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  NVDA  |  claude-haiku-4-5  |  2026-05-16 09:32:22
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1936 tokens
+  Output :    929 tokens
+  Total  :   2865 tokens
+  Cost   : $0.005265 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in English (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 sentences in English for a Telegram signal post>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "NVDA",
+  "as_of": "2026-05-16",
+  "company_type": "Hypergrowth Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 7.66,
+    "valuation": 4.34,
+    "technical": 8.37,
+    "risk": 5.44,
+    "style_fit": 8.39
+  },
+  "horizon_scores": {
+    "short": 67.6,
+    "medium": 65.5,
+    "long": 67.9
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "style_fit.revenue_growth_style=10.0",
+    "risk.fcf_consistency=10.0",
+    "technical.relative_strength=10.0"
+  ],
+  "top_negative_features": [
+    "quality.accruals_ratio=0.0",
+    "valuation.ps_ratio=0.0",
+    "risk.beta=2.5"
+  ],
+  "stop_factors": [
+    {
+      "name": "Premium Valuation (P/S)",
+      "severity": "warning",
+      "description": "P/S ratio 29.8x \u2014 priced for extraordinary growth; any slowdown or margin miss could trigger sharp re-rating"
+    },
+    {
+      "name": "High Volatility at Premium Valuation",
+      "severity": "warning",
+      "description": "Beta 2.2 with P/E 46 \u2014 high-beta name at expensive valuation; drawdowns of 30-50% are historically common"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 46.1,
+      "pe_forward": 19.8,
+      "pe_hist_avg": 39.2,
+      "ps_ttm": 29.8,
+      "analyst_target_median": 275.0,
+      "analyst_upside_pct": 22.0,
+      "analyst_count": 57,
+      "analyst_consensus": "strong_buy"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 65.5,
+      "revenue_growth_3y_avg_pct": 101.8,
+      "gross_margin_pct": 59.7,
+      "net_margin_pct": 46.4,
+      "roe_pct": 76.3,
+      "fcf_yield_pct": 0.9
+    },
+    "technical": {
+      "price_vs_ma50_pct": 16.7,
+      "price_vs_ma200_pct": 21.2,
+      "atr_pct_daily": 3.64
+    },
+    "risk": {
+      "beta": 2.24,
+      "debt_to_equity": 0.05,
+      "short_interest_pct_float": 1.2
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 225.32,
+  "limit_price": 218.71,
+  "target_price": 275.0,
+  "stop_price": 194.65,
+  "horizon_label": "medium (3\u201312 months)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": false,
+  "contradictions": [
+    "Valuation score 4.34 (weak) conflicts with quality score 7.66 and analyst_consensus 'strong_buy' with 22% upside — the engine is correctly identifying premium pricing, but quality fundamentals (65.5% 1y revenue growth, 46.4% net margin, 76.3% ROE) justify some premium.",
+    "Risk score 5.44 (mid-range acceptable) understates true volatility exposure: beta 2.24 + P/S 29.8x + P/E 46.1x is a high-risk combo. Score should reflect this tension more sharply (≤4 would be more honest).",
+    "Technical score 8.37 (strong) while price is 21.2% above MA200 — this is extended momentum, not strength. At entry (limit 218.71), pullback brings price closer to MA200; the limit order mitigates this risk, but 8.37 overstates current technicals.",
+    "Medium-horizon score 65.5 is borderline weak given valuation dominates (30% weight): P/S 29.8x and P/E 46.1x for a mega-cap (not early hypergrowth) justify caution. Score should be ≤62 given these multiples, unless forward earnings surprise is baked in (P/E fwd 19.8x suggests it is)."
+  ],
+  "confidence": 0.72,
+  "narrative": "NVDA: Strong quality (65% YoY growth, 46% net margin) justifies premium, but P/S 29.8x & P/E 46x carry 30–50% drawdown risk at beta 2.2. Accumulate on pullback to 218.71 with 2.6:1 R/R target 275; watch for margin pressure or macro headwinds.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**Key observations:**
+
+1. **Valuation vs. Quality tension is real, not contradictory:** P/S 29.8x is objectively expensive, but 65.5% YoY revenue growth, 46.4% net margin, and 76.3% ROE justify a premium multiple. The engine correctly flagged valuation as weak (4.34) because multiples are stretched *even for hypergrowth*; this is not an error, but a pricing warning.
+
+2. **Risk score undercounts volatility:** Beta 2.24 + premium valuation + ATR 3.64% daily = sharp drawdown susceptibility. A score of 5.44 masks this. The stop_factors correctly name the hazard, but the risk *block score* should be ≤4 to reflect tail risk.
+
+3. **Technical score inflated:** 21.2% above MA200 is extended, not strong. The limit order at 218.71 (3.6% below current) is a *management* of this weakness, not a validation. Score 8.37 is optimistic; should be 6–7 for an extended momentum setup.
+
+4. **Medium-horizon 65.5 is fair but tight:** Valuation (30% weight, score 4.34) drags down the score appropriately. The 22% analyst upside and strong_buy consensus provide cover, but R/R = (275 − 218.71) / (218.71 − 194.65) = 2.6:1 is healthy and justifies the limit order.
+
+5. **No critical stop_factors present, but warnings are substantive:** The engine did not escalate to "Avoid," which is reasonable given strong fundamentals and analyst consensus, but investors must respect the 30–50% historical drawdown risk at this valuation.
+
+**R/R check:** 2.6:1 is solid risk–reward; no issue there.
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  NVDA  |  claude-haiku-4-5  |  2026-05-16 09:33:35
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1936 tokens
+  Output :    813 tokens
+  Total  :   2749 tokens
+  Cost   : $0.004801 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in English (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 sentences in English for a Telegram signal post>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "NVDA",
+  "as_of": "2026-05-16",
+  "company_type": "Hypergrowth Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 7.66,
+    "valuation": 4.34,
+    "technical": 8.37,
+    "risk": 5.44,
+    "style_fit": 8.39
+  },
+  "horizon_scores": {
+    "short": 67.6,
+    "medium": 65.5,
+    "long": 67.9
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "style_fit.revenue_growth_style=10.0",
+    "risk.fcf_consistency=10.0",
+    "technical.relative_strength=10.0"
+  ],
+  "top_negative_features": [
+    "quality.accruals_ratio=0.0",
+    "valuation.ps_ratio=0.0",
+    "risk.beta=2.5"
+  ],
+  "stop_factors": [
+    {
+      "name": "Premium Valuation (P/S)",
+      "severity": "warning",
+      "description": "P/S ratio 29.8x \u2014 priced for extraordinary growth; any slowdown or margin miss could trigger sharp re-rating"
+    },
+    {
+      "name": "High Volatility at Premium Valuation",
+      "severity": "warning",
+      "description": "Beta 2.2 with P/E 46 \u2014 high-beta name at expensive valuation; drawdowns of 30-50% are historically common"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 46.1,
+      "pe_forward": 19.8,
+      "pe_hist_avg": 39.2,
+      "ps_ttm": 29.8,
+      "analyst_target_median": 275.0,
+      "analyst_upside_pct": 22.0,
+      "analyst_count": 57,
+      "analyst_consensus": "strong_buy"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 65.5,
+      "revenue_growth_3y_avg_pct": 101.8,
+      "gross_margin_pct": 59.7,
+      "net_margin_pct": 46.4,
+      "roe_pct": 76.3,
+      "fcf_yield_pct": 0.9
+    },
+    "technical": {
+      "price_vs_ma50_pct": 16.7,
+      "price_vs_ma200_pct": 21.2,
+      "atr_pct_daily": 3.64
+    },
+    "risk": {
+      "beta": 2.24,
+      "debt_to_equity": 0.05,
+      "short_interest_pct_float": 1.2
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 225.32,
+  "limit_price": 218.71,
+  "target_price": 275.0,
+  "stop_price": 194.65,
+  "horizon_label": "medium (3\u201312 months)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": true,
+  "contradictions": [],
+  "confidence": 0.92,
+  "narrative": "NVDA shows exceptional quality (ROE 76%, margin 46%) with strong analyst consensus (57 analysts, 22% upside to $275). Premium valuation (P/S 29.8x, P/E 46x) and high beta (2.24) warrant entry on pullback to $218.71 for 2.6x R/R with disciplined risk management.",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+**Verification Summary:**
+
+✅ **Block Score Alignment:**
+- **Quality 7.66** justified: revenue growth 65.5% YoY, net margin 46.4%, ROE 76.3%, FCF consistency 10/10.
+- **Valuation 4.34** justified: P/E 46.1x (vs hist avg 39.2), P/S 29.8x (extremely expensive). Score reflects warning-level risk, not fundamental weakness.
+- **Technical 8.37** justified: price 16.7% above MA50, 21.2% above MA200, relative strength 10/10. Extended but in a hypergrowth context; "Accumulate on Pullback" action correctly de-risks.
+- **Risk 5.44** justified: beta 2.24 (high), debt minimal (0.05), short interest low (1.2%). High volatility is the concern, not solvency.
+- **Style Fit 8.39** justified: 65% revenue growth aligns perfectly with hypergrowth mandate.
+
+✅ **Horizon Weighting (Medium-term 65.5):**
+Medium weights valuation (30%) and quality (25%) heavily—both are critical for 3–12-month holding. Technical (20%) is secondary but still material. Scores sit in 65–68 range; acceptable but not exceptional, reflecting valuation headwind.
+
+✅ **R/R Calculation:**
+- Entry: $218.71 (limit, pullback level)
+- Target: $275.00
+- Stop: $194.65
+- R/R = ($275 − $218.71) / ($218.71 − $194.65) = $56.29 / $24.06 = **2.34x** ✓ (exceeds 1.5 threshold)
+
+✅ **Raw Metrics vs. Scores:**
+- Analyst consensus "strong_buy" with 22% upside supports accumulation thesis despite valuation warnings.
+- FCF yield 0.9% is low (typical for hypergrowth at peak valuation), but FCF *consistency* is 10/10, mitigating quality concerns.
+- No revenue decline, debt-free balance sheet, low short interest all clean.
+
+✅ **Trade Action Rationale:**
+"Accumulate on Pullback" is correct: technicals are extended (21.2% above MA200), valuation is at warning threshold, so entry at $218.71 (down 3% from spot) is prudent. This action *acknowledges* the technical and valuation risk rather than contradicting it.
+
+✅ **No Critical Stop Factors:**
+Both listed factors are "warning" severity, not critical. Absence of critical triggers + horizon scores ≥ 65 + positive R/R justify proceeding with limit discipline.
+
+──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+  AI CALL  —  NVDA  |  claude-haiku-4-5  |  2026-05-16 09:34:42
+══════════════════════════════════════════════════════════════════════
+
+── TOKENS ──────────────────────────────────────────────────────────
+  Input  :   1936 tokens
+  Output :    463 tokens
+  Total  :   2399 tokens
+  Cost   : $0.003401 USD  (model: claude-haiku-4-5)
+
+── SYSTEM PROMPT ────────────────────────────────────────────────────
+You are a second-opinion analyst verifying a quantitative stock analysis.
+The analysis is produced by a rule-based scoring engine. Your job is BOTH to:
+  1. Check internal consistency of the engine's scores and recommendation.
+  2. Cross-check those scores against the raw financial data provided in
+     "raw_metrics" — and flag cases where a score seems implausible given
+     the underlying numbers.
+
+━━ SCORING SCALE ━━
+- Block scores (quality, valuation, technical, risk, style_fit): 0–10.
+  ≥ 8 = strong  |  5–8 = acceptable  |  < 5 = weak
+- Horizon scores (short, medium, long): 0–100 overall weighted scores.
+- Block weights differ by horizon:
+    short:  technical 40%, risk 25%, valuation 20%, quality 10%, style_fit 5%
+    medium: valuation 30%, quality 25%, technical 20%, risk 15%, style_fit 10%
+    long:   quality 35%, risk 25%, style_fit 15%, valuation 15%, technical 10%
+  → A weak technical score on a long-horizon trade is expected and NOT a contradiction.
+
+━━ HOW TO USE raw_metrics ━━
+Use these real financial numbers to sanity-check whether the block scores make sense.
+Examples of contradictions to flag:
+  - valuation score ≥ 8 but pe_trailing > 40 AND revenue_growth_1y_pct < 10%
+    (expensive stock at low growth ≠ good valuation)
+  - quality score ≥ 8 but net_margin_pct < 5% or roe_pct < 8%
+  - quality score ≥ 8 but revenue_growth_1y_pct < 0 (shrinking revenue)
+  - risk score ≥ 7 but debt_to_equity > 2.0 or beta > 2.0
+  - technical score < 3 but price_vs_ma200_pct > 20% (wildly extended) — mention in narrative
+  - analyst_consensus = "sell" or "strong_sell" while action is "Accumulate"
+  - analyst_upside_pct < 0 (price above median target) while action is "Accumulate"
+  Note: raw_metrics may be partially absent — only flag if the available data
+  clearly contradicts the score. Do NOT penalise for missing fields.
+
+━━ TRADE ACTION SEMANTICS ━━
+- "Accumulate" (market): engine confirmed technicals AND fundamentals are aligned.
+  Flag contradiction only if block scores clearly don't support immediate entry.
+- "Accumulate on Pullback" (limit order): engine ALREADY detected an issue
+  (weak technicals, extended price, or poor R/R at market) and downgraded.
+  The limit_price IS the intended entry. Technical weakness is NOT a contradiction
+  here — it is the reason for the limit. Evaluate R/R at limit_price instead.
+- "Avoid": verify that critical stop factors or score < 60 justify this.
+
+━━ R/R VERIFICATION (when limit_price, target_price, stop_price are provided) ━━
+  R/R = (target_price − entry) / (entry − stop_price), where entry = limit_price
+  if action is "Accumulate on Pullback", else current_price.
+  R/R < 1.5 is a real contradiction worth flagging.
+
+━━ WHEN TO ABSTAIN ━━
+  abstain=true ONLY when: data_quality="poor", OR critical_stop_factors are
+  present but action is not "Avoid", OR R/R < 1.0 (clearly unfavourable).
+  Do NOT abstain just because one block is weak.
+
+━━ OUTPUT ━━
+Respond ONLY with valid JSON. No markdown. No text outside the JSON.
+Write "narrative" in English (1–2 sentences max, for a Telegram signal post).
+{
+  "agreement": <boolean — no genuine contradictions found?>,
+  "contradictions": [<short strings, empty list if none>],
+  "confidence": <float 0.0–1.0 — your certainty in the verdict>,
+  "narrative": <1-2 sentences in English for a Telegram signal post>,
+  "action": <"accumulate" | "accumulate_on_pullback" | "avoid" | "watch">,
+  "abstain": <boolean>
+}
+
+── USER PAYLOAD (data sent to AI) ───────────────────────────────────
+{
+  "symbol": "NVDA",
+  "as_of": "2026-05-16",
+  "company_type": "Hypergrowth Tech",
+  "data_quality": "good",
+  "block_scores": {
+    "quality": 7.66,
+    "valuation": 4.34,
+    "technical": 8.37,
+    "risk": 5.44,
+    "style_fit": 8.39
+  },
+  "horizon_scores": {
+    "short": 67.6,
+    "medium": 65.5,
+    "long": 67.9
+  },
+  "critical_stop_factors": [],
+  "top_positive_features": [
+    "style_fit.revenue_growth_style=10.0",
+    "risk.fcf_consistency=10.0",
+    "technical.relative_strength=10.0"
+  ],
+  "top_negative_features": [
+    "quality.accruals_ratio=0.0",
+    "valuation.ps_ratio=0.0",
+    "risk.beta=2.5"
+  ],
+  "stop_factors": [
+    {
+      "name": "Premium Valuation (P/S)",
+      "severity": "warning",
+      "description": "P/S ratio 29.8x \u2014 priced for extraordinary growth; any slowdown or margin miss could trigger sharp re-rating"
+    },
+    {
+      "name": "High Volatility at Premium Valuation",
+      "severity": "warning",
+      "description": "Beta 2.2 with P/E 46 \u2014 high-beta name at expensive valuation; drawdowns of 30-50% are historically common"
+    }
+  ],
+  "raw_metrics": {
+    "valuation": {
+      "pe_trailing": 46.1,
+      "pe_forward": 19.8,
+      "pe_hist_avg": 39.2,
+      "ps_ttm": 29.8,
+      "analyst_target_median": 275.0,
+      "analyst_upside_pct": 22.0,
+      "analyst_count": 57,
+      "analyst_consensus": "strong_buy"
+    },
+    "quality": {
+      "revenue_growth_1y_pct": 65.5,
+      "revenue_growth_3y_avg_pct": 101.8,
+      "gross_margin_pct": 59.7,
+      "net_margin_pct": 46.4,
+      "roe_pct": 76.3,
+      "fcf_yield_pct": 0.9
+    },
+    "technical": {
+      "price_vs_ma50_pct": 16.7,
+      "price_vs_ma200_pct": 21.2,
+      "atr_pct_daily": 3.64
+    },
+    "risk": {
+      "beta": 2.24,
+      "debt_to_equity": 0.05,
+      "short_interest_pct_float": 1.2
+    }
+  },
+  "trade_action": "Accumulate on Pullback",
+  "current_price": 225.32,
+  "limit_price": 218.71,
+  "target_price": 275.0,
+  "stop_price": 194.65,
+  "horizon_label": "medium (3\u201312 months)"
+}
+
+── RAW AI RESPONSE ──────────────────────────────────────────────────
+```json
+{
+  "agreement": false,
+  "contradictions": [
+    "Valuation score 4.34 (weak) is justified by P/S 29.8x and P/E 46.1x at premium multiples, BUT quality score 7.66 seems high given accruals_ratio=0.0 (negative feature) — earnings quality concern not fully reflected in quality block.",
+    "Risk score 5.44 (marginal) conflicts with beta 2.24 and stop_factors explicitly warning 'High Volatility at Premium Valuation' with 30-50% drawdown history — risk score should be lower (≤4) to match the severity of volatility warnings.",
+    "Action 'Accumulate on Pullback' at limit_price $218.71 is reasonable, BUT the medium-horizon score 65.5 sits in the 'acceptable' band (5–8 equivalent = 50–80), implying modest conviction. Stop-loss at $194.65 gives R/R = (275−218.71)/(218.71−194.65) = 2.39, which is acceptable, but the modest horizon score + high beta + premium valuation suggest tighter risk management or smaller position size should be explicit."
+  ],
+  "confidence": 0.72,
+  "narrative": "NVDA shows exceptional growth (65% YoY revenue, 76% ROE) and strong technical momentum (+21% above 200-day MA), but trades at extreme valuation (P/S 29.8x, P/E 46x) with high volatility (beta 2.24). Pullback entry at $218.71 with 2.4× R/R to $275 median target is tactically sound for medium horizon, but position sizing and tight stops are critical given earnings quality red flags (accruals_ratio 0.0).",
+  "action": "accumulate_on_pullback",
+  "abstain": false
+}
+```
+
+──────────────────────────────────────────────────────────────────────

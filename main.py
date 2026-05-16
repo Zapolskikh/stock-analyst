@@ -17,12 +17,17 @@ tickers.txt format: one ticker per line, # lines are comments.
 """
 
 from __future__ import annotations
+
 import argparse
 import os
 import sys
 
-from src.engine.engine    import analyse
-from src.output.formatter import format_report, format_brief
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from src.engine.engine import analyse
+from src.output.formatter import format_brief, format_report
 
 
 def _load_tickers_from_file(path: str) -> list[str]:
@@ -38,35 +43,44 @@ def _load_tickers_from_file(path: str) -> list[str]:
 
 def cmd_single(ticker: str) -> None:
     result = analyse(ticker)
-    print(format_report(result))
+    sys.stdout.buffer.write((format_report(result) + "\n").encode("utf-8", errors="replace"))
 
 
 def cmd_multi(tickers: list[str]) -> None:
     results = [analyse(t) for t in tickers]
     results.sort(key=lambda r: r.overall_score, reverse=True)
-    print(f"\n{'TICKER':<6} | {'TYPE':<20} | SCORE | SHORT  MED  LONG | RECOMMENDATION")
-    print("-" * 75)
+    lines = [f"\n{'TICKER':<6} | {'TYPE':<20} | SCORE | SHORT  MED  LONG | RECOMMENDATION",
+             "-" * 75]
     for r in results:
-        print(format_brief(r))
-    print()
+        lines.append(format_brief(r))
+    lines.append("")
+    sys.stdout.buffer.write("\n".join(lines).encode("utf-8", errors="replace"))
 
 
-def cmd_batch(args: argparse.Namespace) -> None:
+def cmd_batch(args: argparse.Namespace, tickers: list[str] | None = None) -> None:
     from src.ai.connector import build_connector
-    from src.runner import run_universe, print_batch_summary
+    from src.output.telegram_bot import TelegramBot
+    from src.runner import print_batch_summary, run_universe
 
-    tickers = _load_tickers_from_file(args.batch)
+    if tickers is None:
+        tickers = _load_tickers_from_file(args.batch)
     if not tickers:
-        print("No tickers found in file.")
+        print("No tickers found.")
         sys.exit(1)
 
-    # Build AI connector
-    backend = args.ai or "null"
+    # Build AI connector — auto-detect Claude from env if --ai not set
+    backend = args.ai
+    if backend == "null" and not args.no_ai:
+        api_key_env = os.environ.get("ANTHROPIC_API_KEY", "")
+        if api_key_env:
+            backend = "claude"
+            print("AI: auto-detected ANTHROPIC_API_KEY → using claude (haiku)")
+
     kwargs: dict = {}
     if backend == "claude":
         kwargs["api_key"] = args.ai_key or os.environ.get("ANTHROPIC_API_KEY", "")
-        if args.ai_model:
-            kwargs["model"] = args.ai_model
+        # Default to Haiku; allow override via --ai-model
+        kwargs["model"] = args.ai_model or "claude-haiku-4-5"
     elif backend == "ollama":
         if args.ai_model:
             kwargs["model"] = args.ai_model
@@ -74,6 +88,17 @@ def cmd_batch(args: argparse.Namespace) -> None:
             kwargs["base_url"] = args.ai_url
 
     connector = build_connector(backend, **kwargs)
+
+    # Build Telegram bot if requested
+    telegram_bot = None
+    if args.telegram:
+        token   = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+        chat_id = os.environ.get("TELEGRAM_OUTPUT_CHAT_ID", "")
+        if not token or not chat_id:
+            print("WARNING: --telegram set but TELEGRAM_BOT_TOKEN / TELEGRAM_OUTPUT_CHAT_ID not found in env.")
+        else:
+            telegram_bot = TelegramBot(token=token, chat_id=chat_id)
+            print(f"Telegram: enabled → chat {chat_id}")
 
     print(f"\nBatch run: {len(tickers)} tickers  |  AI backend: {backend}  |  min_score: {args.min_score}")
 
@@ -84,6 +109,7 @@ def cmd_batch(args: argparse.Namespace) -> None:
         min_score=args.min_score,
         save_all_reports=args.save_all,
         save_charts=not args.no_charts,
+        telegram_bot=telegram_bot,
     )
 
     print_batch_summary(batch)
@@ -112,18 +138,28 @@ def main() -> None:
 
     # AI options
     parser.add_argument("--ai", choices=["null", "claude", "ollama"], default="null",
-                        help="AI backend (default: null — skip AI)")
+                        help="AI backend (default: auto — uses claude if ANTHROPIC_API_KEY is set)")
+    parser.add_argument("--no-ai", action="store_true",
+                        help="Disable AI even if ANTHROPIC_API_KEY is in env")
     parser.add_argument("--ai-model", metavar="MODEL",
-                        help="Model name for claude or ollama backend")
+                        help="Model name for claude or ollama (default for claude: claude-3-5-haiku-20241022)")
     parser.add_argument("--ai-key", metavar="KEY",
                         help="API key for claude (or set ANTHROPIC_API_KEY env var)")
     parser.add_argument("--ai-url", metavar="URL",
                         help="Base URL for ollama (default: http://localhost:11434)")
 
+    # Telegram options
+    parser.add_argument("--telegram", action="store_true",
+                        help="Send passing signals to Telegram (reads TELEGRAM_BOT_TOKEN and TELEGRAM_OUTPUT_CHAT_ID from env)")
+
     args = parser.parse_args()
 
     if args.batch:
         cmd_batch(args)
+    elif args.tickers and (args.telegram or args.ai != "null" or
+                           (not args.no_ai and os.environ.get("ANTHROPIC_API_KEY"))):
+        # Single/multi with AI or Telegram — route through full pipeline
+        cmd_batch(args, tickers=args.tickers)
     elif len(args.tickers) == 1:
         cmd_single(args.tickers[0])
     elif len(args.tickers) > 1:

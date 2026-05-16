@@ -19,7 +19,6 @@ from statistics import mean
 from src.data.normalizer import NormalisedData
 from src.scoring.base import BlockScore, avg_scores
 
-
 # Minimum bars needed for each indicator
 _MIN_MA50  = 50
 _MIN_MA200 = 200
@@ -187,9 +186,9 @@ def score_technical(nd: NormalisedData) -> BlockScore:
             breakdown["price_vs_ma200"] = s
             pct = (current - ma200) / ma200 * 100
             if pct < 0:
-                notes.append(f"price below MA200 — bearish structure")
+                notes.append("price below MA200 — bearish structure")
             elif pct > 0:
-                notes.append(f"price above MA200 — bullish structure")
+                notes.append("price above MA200 — bullish structure")
 
     # --- Momentum ----------------------------------------------------------
     for label, lookback in [("momentum_3m", _MIN_MOM3),

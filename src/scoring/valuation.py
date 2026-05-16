@@ -183,19 +183,22 @@ def score_valuation(
             peg = pe_f / eps_g_capped
             s = bm.score_metric("peg_ratio", peg)
             if math.isfinite(s):
-                breakdown["peg_ratio"] = s
                 growth_note = f"{eps_g:.0f}% (capped 50%)" if eps_g > 50.0 else f"{eps_g:.0f}%"
-                if peg < 1.0:
-                    notes.append(f"PEG {peg:.2f} — attractive (growth underpriced, g={growth_note})")
-                elif peg > 3.0:
-                    notes.append(f"PEG {peg:.2f} — expensive relative to growth (g={growth_note})")
-                # Reliability warning: explosive EPS growth (>80%) is often
+                # Reliability check: explosive EPS growth (>80%) is often
                 # cyclical or base-effect driven — PEG signal is unreliable.
+                # In such cases: show as informational note only, exclude from score.
                 if eps_g > 80.0:
                     notes.append(
-                        f"PEG LOW RELIABILITY: EPS growth {eps_g:.0f}% suggests cyclical/base-effect "
-                        "— PEG may overstate attractiveness"
+                        f"PEG {peg:.2f} (informational, not scored): EPS growth {eps_g:.0f}% "
+                        "is base-effect/cyclical — PEG excluded from valuation score"
                     )
+                    # Do NOT add to breakdown — score would be misleading
+                else:
+                    breakdown["peg_ratio"] = s
+                    if peg < 1.0:
+                        notes.append(f"PEG {peg:.2f} — attractive (growth underpriced, g={growth_note})")
+                    elif peg > 3.0:
+                        notes.append(f"PEG {peg:.2f} — expensive relative to growth (g={growth_note})")
 
     # --- EV / EBITDA -------------------------------------------------------
     # EV = market_cap + last_long_term_debt − last_cash

@@ -4,6 +4,7 @@ Tests for src/models/benchmarks.py — fully offline.
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from src.classifier import CompanyType
@@ -14,7 +15,6 @@ from src.models.benchmarks import (
     get_benchmark,
     score_metric,
 )
-
 
 # ---------------------------------------------------------------------------
 # Threshold interpolation
